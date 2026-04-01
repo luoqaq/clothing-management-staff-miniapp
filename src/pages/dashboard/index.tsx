@@ -2,8 +2,8 @@ import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Text, View } from '@tarojs/components';
 import { getDashboardSummary } from '../../services/dashboard';
-import { DashboardSummary } from '../../types';
-import { requireAuth } from '../../utils/auth';
+import { DashboardSummary, User } from '../../types';
+import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
 import { formatCurrency, formatOrderStatus } from '../../utils/format';
 
 const emptySummary: DashboardSummary = {
@@ -16,6 +16,7 @@ const emptySummary: DashboardSummary = {
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
+  const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
 
   const load = async () => {
     if (!requireAuth()) {
@@ -25,6 +26,7 @@ export default function DashboardPage() {
     try {
       const result = await getDashboardSummary();
       setSummary(result);
+      setUser(getCurrentUser() || undefined);
     } catch (error: any) {
       Taro.showToast({ title: error.message || '加载失败', icon: 'none' });
     }
@@ -82,11 +84,13 @@ export default function DashboardPage() {
             <View className='quick-link__title'>查商品</View>
             <View className='quick-link__desc'>查看库存与详情</View>
           </View>
-          <View className='quick-link' onClick={() => Taro.navigateTo({ url: '/pages/product-create/index' })}>
-            <View className='quick-link__icon'>新</View>
-            <View className='quick-link__title'>轻量上新</View>
-            <View className='quick-link__desc'>直接录入新款</View>
-          </View>
+          {hasManagerAccess(user) ? (
+            <View className='quick-link' onClick={() => Taro.navigateTo({ url: '/pages/product-create/index' })}>
+              <View className='quick-link__icon'>新</View>
+              <View className='quick-link__title'>轻量上新</View>
+              <View className='quick-link__desc'>直接录入新款</View>
+            </View>
+          ) : null}
           <View className='quick-link' onClick={() => Taro.navigateTo({ url: '/pages/order-create/index' })}>
             <View className='quick-link__icon'>单</View>
             <View className='quick-link__title'>门店录单</View>

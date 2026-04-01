@@ -26,7 +26,8 @@ export function formatOrderStatus(status: OrderStatus) {
 export function formatRole(role: UserRole) {
   return {
     admin: '管理员',
-    manager: '店长',
-    staff: '店员',
+    sales: '销售',
+    manager: '销售',
+    staff: '销售',
   }[role];
 }

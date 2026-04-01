@@ -6,8 +6,8 @@ import { isAuthenticated } from '../../utils/auth';
 import { setToken, setUser } from '../../utils/storage';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -43,18 +43,18 @@ export default function LoginPage() {
         <View className='auth-brand'>
           <View className='auth-brand__badge'>CM</View>
           <View>
-            <View className='page__eyebrow'>Store Operations</View>
-            <View className='page__title page__title--light'>店铺运营协同端</View>
-            <View className='page__subtitle page__subtitle--light'>使用后台账号登录，统一处理商品建档、图片补传与门店订单。</View>
+            <View className='page__eyebrow'>Welcome Back</View>
+            <View className='page__title page__title--light'>登录你的店铺工作台</View>
+            <View className='page__subtitle page__subtitle--light'>登录后你可以继续查商品、录订单和处理门店日常工作。</View>
           </View>
         </View>
         <View className='page__summary'>
           <View className='page__summary-item'>
-            <View className='page__summary-label'>今日任务</View>
-            <View className='page__summary-value'>上新 / 录单</View>
+            <View className='page__summary-label'>登录后可用</View>
+            <View className='page__summary-value'>查货 / 录单</View>
           </View>
           <View className='page__summary-item'>
-            <View className='page__summary-label'>终端定位</View>
+            <View className='page__summary-label'>当前入口</View>
             <View className='page__summary-value'>门店工作台</View>
           </View>
         </View>
@@ -62,7 +62,7 @@ export default function LoginPage() {
 
       <View className='card auth-form'>
         <View className='section-title'>账号登录</View>
-        <View className='section-desc'>延续后台权限体系，门店同事可直接用现有账号进入工作区。</View>
+        <View className='section-desc'>请输入你的账号和密码，进入今天的工作区。</View>
         <View className='field'>
           <Text className='field__label'>账号</Text>
           <Input className='input' value={username} onInput={(e) => setUsername(e.detail.value)} placeholder='请输入账号' />

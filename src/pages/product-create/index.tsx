@@ -46,6 +46,9 @@ export default function ProductCreatePage() {
     const user = getCurrentUser();
     if (!hasManagerAccess(user)) {
       Taro.showToast({ title: '当前角色不能新增商品', icon: 'none' });
+      setTimeout(() => {
+        Taro.switchTab({ url: '/pages/products/index' });
+      }, 500);
       return;
     }
 

@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'manager' | 'staff';
+export type UserRole = 'admin' | 'sales' | 'manager' | 'staff';
 export type ProductStatus = 'draft' | 'active' | 'inactive';
 export type ProductSpecificationStatus = 'active' | 'inactive';
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
@@ -56,7 +56,7 @@ export interface ProductSpecification {
   color: string;
   size: string;
   salePrice: number;
-  costPrice: number;
+  costPrice?: number;
   stock: number;
   reservedStock: number;
   availableStock: number;

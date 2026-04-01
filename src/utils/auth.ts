@@ -2,6 +2,10 @@ import Taro from '@tarojs/taro';
 import { clearCart, clearToken, clearUser, getToken, getUser } from './storage';
 import { User } from '../types';
 
+export function normalizeRole(role?: User['role'] | null) {
+  return role === 'admin' ? 'admin' : 'sales';
+}
+
 export function isAuthenticated() {
   return Boolean(getToken());
 }
@@ -11,7 +15,7 @@ export function getCurrentUser() {
 }
 
 export function hasManagerAccess(user?: User | null) {
-  return user?.role === 'admin' || user?.role === 'manager';
+  return normalizeRole(user?.role) === 'admin';
 }
 
 export function requireAuth() {
