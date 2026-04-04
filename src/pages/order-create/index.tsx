@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Input, Picker, Text, Textarea, View } from '@tarojs/components';
+import { getAgeBuckets } from '../../services/customers';
 import { createOrder } from '../../services/orders';
-import { CartItem } from '../../types';
+import { CartItem, CustomerAgeBucket } from '../../types';
 import { requireAuth } from '../../utils/auth';
 import { formatCurrency } from '../../utils/format';
 import { clearCart, getCart } from '../../utils/storage';
@@ -11,10 +12,13 @@ const paymentMethods = ['现金', '微信', '支付宝'];
 
 export default function OrderCreatePage() {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [ageBuckets, setAgeBuckets] = useState<CustomerAgeBucket[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     customerName: '',
     customerPhone: '',
+    customerEmail: '',
+    ageBucketId: null as number | null,
     note: '',
     paymentMethod: paymentMethods[0],
   });
@@ -24,6 +28,14 @@ export default function OrderCreatePage() {
       return;
     }
     setItems(getCart());
+    void (async () => {
+      try {
+        const result = await getAgeBuckets();
+        setAgeBuckets(result);
+      } catch (error: any) {
+        Taro.showToast({ title: error.message || '加载年龄段失败', icon: 'none' });
+      }
+    })();
   });
 
   const totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -34,11 +46,18 @@ export default function OrderCreatePage() {
       return;
     }
 
+    if (form.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.customerEmail)) {
+      Taro.showToast({ title: '邮箱格式不正确', icon: 'none' });
+      return;
+    }
+
     try {
       setSubmitting(true);
       const order = await createOrder({
         customerName: form.customerName,
         customerPhone: form.customerPhone,
+        customerEmail: form.customerEmail || undefined,
+        ageBucketId: form.ageBucketId,
         note: form.note,
         paymentMethod: form.paymentMethod,
         items: items.map((item) => ({
@@ -77,6 +96,30 @@ export default function OrderCreatePage() {
         <View className='field'>
           <Text className='field__label'>客户手机</Text>
           <Input className='input' value={form.customerPhone} type='number' onInput={(e) => setForm({ ...form, customerPhone: e.detail.value })} />
+        </View>
+        <View className='field'>
+          <Text className='field__label'>客户邮箱</Text>
+          <Input
+            className='input'
+            value={form.customerEmail}
+            type='text'
+            onInput={(e) => setForm({ ...form, customerEmail: e.detail.value.trim() })}
+            placeholder='可选，已支付订单会同步到客户档案'
+          />
+        </View>
+        <View className='field'>
+          <Text className='field__label'>年龄段</Text>
+          <Picker
+            mode='selector'
+            range={ageBuckets}
+            rangeKey='name'
+            onChange={(e) => {
+              const selected = ageBuckets[Number(e.detail.value)] || null;
+              setForm({ ...form, ageBucketId: selected?.id || null });
+            }}
+          >
+            <View className='picker'>{ageBuckets.find((item) => item.id === form.ageBucketId)?.name || '可不选'}</View>
+          </Picker>
         </View>
         <View className='field'>
           <Text className='field__label'>收款方式</Text>

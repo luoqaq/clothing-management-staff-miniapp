@@ -48,6 +48,14 @@ export interface Supplier {
   name: string;
 }
 
+export interface CustomerAgeBucket {
+  id: number;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProductSpecification {
   id: number;
   productId: number;
@@ -151,7 +159,8 @@ export interface Order {
   source: OrderSource;
   customerName: string;
   customerPhone: string;
-  customerEmail?: string;
+  customerEmail?: string | null;
+  ageBucketId?: number | null;
   items: OrderItem[];
   totalAmount: number;
   discountAmount?: number;
@@ -174,6 +183,8 @@ export interface Order {
 export interface CreateOrderPayload {
   customerName: string;
   customerPhone: string;
+  customerEmail?: string;
+  ageBucketId?: number | null;
   note?: string;
   paymentMethod?: string;
   paymentStatus?: 'unpaid' | 'paid' | 'refunded';
