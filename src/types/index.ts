@@ -73,6 +73,37 @@ export interface ProductSpecification {
   updatedAt: string;
 }
 
+export interface ScannedSkuProduct {
+  skuId: number;
+  productId: number;
+  productCode: string;
+  productName: string;
+  barcode: string;
+  skuCode: string;
+  color: string;
+  size: string;
+  salePrice: number;
+  stock: number;
+  reservedStock: number;
+  availableStock: number;
+  status: ProductSpecificationStatus;
+  productStatus: ProductStatus;
+  image?: string | null;
+}
+
+export interface ProductLabelItem {
+  skuId: number;
+  productId: number;
+  productCode: string;
+  productName: string;
+  barcode: string;
+  skuCode: string;
+  color: string;
+  size: string;
+  salePrice: number;
+  image?: string | null;
+}
+
 export interface Product {
   id: number;
   productCode: string;
@@ -148,6 +179,7 @@ export interface OrderItem {
   skuCode: string;
   image?: string | null;
   price: number;
+  soldPrice?: number;
   quantity: number;
   color?: string | null;
   size?: string | null;
@@ -191,6 +223,7 @@ export interface CreateOrderPayload {
   items: Array<{
     skuId: number;
     quantity: number;
+    soldPrice?: number;
   }>;
 }
 
@@ -223,6 +256,7 @@ export interface CartItem {
   skuCode: string;
   image?: string | null;
   price: number;
+  soldPrice: number;
   color?: string | null;
   size?: string | null;
   quantity: number;

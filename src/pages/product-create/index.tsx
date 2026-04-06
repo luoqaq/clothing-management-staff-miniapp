@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { Button, Input, Picker, Text, Textarea, View } from '@tarojs/components';
+import { Button, Image, Input, Picker, Text, Textarea, View } from '@tarojs/components';
 import { createProduct, getProductOptions } from '../../services/products';
 import { CreateProductPayload, ProductOptions, ProductSpecificationPayload } from '../../types';
 import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
@@ -12,7 +12,6 @@ const defaultSpecification = (): ProductSpecificationPayload => ({
   salePrice: 0,
   costPrice: 0,
   stock: 0,
-  barcode: '',
   status: 'active',
 });
 
@@ -213,10 +212,63 @@ export default function ProductCreatePage() {
             上传详情图
           </Button>
         </View>
-        <View className='summary-strip'>
-          <View className='summary-chip'>主图 {form.mainImages?.length || 0} 张</View>
-          <View className='summary-chip'>详情图 {form.detailImages?.length || 0} 张</View>
-        </View>
+
+        {/* 主图缩略图列表 */}
+        {form.mainImages && form.mainImages.length > 0 && (
+          <View className='image-section'>
+            <View className='image-section__title'>主图 ({form.mainImages.length} 张)</View>
+            <View className='image-list'>
+              {form.mainImages.map((url, index) => (
+                <View key={`main-${index}`} className='image-item'>
+                  <Image className='image-item__thumb' src={url} mode='aspectFill' />
+                  <View
+                    className='image-item__delete'
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        mainImages: prev.mainImages?.filter((_, i) => i !== index),
+                      }))
+                    }
+                  >
+                    <Text className='image-item__delete-icon'>×</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* 详情图缩略图列表 */}
+        {form.detailImages && form.detailImages.length > 0 && (
+          <View className='image-section'>
+            <View className='image-section__title'>详情图 ({form.detailImages.length} 张)</View>
+            <View className='image-list'>
+              {form.detailImages.map((url, index) => (
+                <View key={`detail-${index}`} className='image-item'>
+                  <Image className='image-item__thumb' src={url} mode='aspectFill' />
+                  <View
+                    className='image-item__delete'
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        detailImages: prev.detailImages?.filter((_, i) => i !== index),
+                      }))
+                    }
+                  >
+                    <Text className='image-item__delete-icon'>×</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {(!form.mainImages?.length && !form.detailImages?.length) && (
+          <View className='summary-strip'>
+            <View className='summary-chip'>主图 0 张</View>
+            <View className='summary-chip'>详情图 0 张</View>
+          </View>
+        )}
       </View>
 
       <View className='panel'>
@@ -256,8 +308,8 @@ export default function ProductCreatePage() {
                   <Input className='input' type='number' value={String(spec.stock)} onInput={(e) => updateSpecification(index, 'stock', Number(e.detail.value || 0))} />
                 </View>
                 <View className='field'>
-                  <Text className='field__label'>条码</Text>
-                  <Input className='input' value={spec.barcode || ''} onInput={(e) => updateSpecification(index, 'barcode', e.detail.value)} />
+                  <Text className='field__label'>标签码</Text>
+                  <View className='picker'>保存后自动生成</View>
                 </View>
               </View>
               <Button

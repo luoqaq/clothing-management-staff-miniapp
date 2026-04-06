@@ -33,6 +33,27 @@ export default function ProductsPage() {
     void load();
   });
 
+  const handleScan = async () => {
+    if (!requireAuth()) {
+      return;
+    }
+
+    try {
+      const result = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] });
+      const code = encodeURIComponent(result.result || '');
+      if (!code) {
+        Taro.showToast({ title: '未识别到标签码', icon: 'none' });
+        return;
+      }
+      Taro.navigateTo({ url: `/pages/scan-result/index?code=${code}` });
+    } catch (error: any) {
+      if (error?.errMsg?.includes('cancel')) {
+        return;
+      }
+      Taro.showToast({ title: error.message || '扫码失败', icon: 'none' });
+    }
+  };
+
   return (
     <View className='page page--list'>
       <View className='page__header'>
@@ -49,6 +70,9 @@ export default function ProductsPage() {
         <View className='btn-row'>
           <Button className='button button--primary button--tiny' onClick={() => void load()}>
             查询
+          </Button>
+          <Button className='button button--ghost button--tiny' onClick={() => void handleScan()}>
+            扫码识别
           </Button>
           {hasManagerAccess(user) ? (
             <Button className='button button--ghost button--tiny' onClick={() => Taro.navigateTo({ url: '/pages/product-create/index' })}>

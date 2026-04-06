@@ -52,6 +52,12 @@ npm install
 npm run dev:weapp
 ```
 
+连接本地后端开发构建：
+
+```bash
+npm run dev:weapp-test
+```
+
 生产构建：
 
 ```bash
@@ -79,7 +85,8 @@ dist/
 ## 接口与后端约定
 
 - 默认接口基地址读取 `TARO_APP_API_BASE_URL`
-- 缺省值：`http://127.0.0.1:3000/api`
+- `npm run dev:weapp` 与 `npm run build:weapp` 默认连接线上：`https://clothing.chuchu9.cn/api`
+- `npm run dev:weapp-test` 默认连接本地：`http://127.0.0.1:3000/api`
 - 小程序业务接口统一走：`/api/mobile`
 - 当前认证接口：
   - `POST /auth/login`

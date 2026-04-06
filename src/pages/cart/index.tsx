@@ -17,7 +17,11 @@ export default function CartPage() {
     setItems(getCart());
   });
 
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = items.reduce((sum, item) => sum + (item.soldPrice || item.price) * item.quantity, 0);
+
+  const handleScan = () => {
+    Taro.navigateTo({ url: '/pages/scan-result/index' });
+  };
 
   return (
     <View className='page page--cart'>
@@ -25,6 +29,11 @@ export default function CartPage() {
         <View className='page__eyebrow'>Cart</View>
         <View className='page__title'>购物车</View>
         <View className='page__subtitle'>按门店录单节奏整理待提交商品，数量与金额一眼可见。</View>
+      </View>
+      <View className='btn-row section-gap'>
+        <Button className='button button--ghost button--tiny' onClick={handleScan}>
+          继续扫码
+        </Button>
       </View>
       {items.length === 0 ? (
         <View className='empty-state'>

@@ -5,6 +5,8 @@ export default defineAppConfig({
     'pages/products/index',
     'pages/product-detail/index',
     'pages/product-create/index',
+    'pages/product-label-print/index',
+    'pages/scan-result/index',
     'pages/cart/index',
     'pages/order-create/index',
     'pages/orders/index',

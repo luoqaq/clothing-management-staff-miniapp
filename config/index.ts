@@ -3,6 +3,7 @@ import devConfig from './dev';
 import prodConfig from './prod';
 
 export default defineConfig<'webpack5'>(async (merge, { command, mode }) => {
+  const defaultApiBaseUrl = 'https://clothing.chuchu9.cn/api';
   const baseConfig = {
     projectName: 'clothing-management-staff-miniapp',
     date: '2026-03-23',
@@ -18,7 +19,9 @@ export default defineConfig<'webpack5'>(async (merge, { command, mode }) => {
     compiler: 'webpack5',
     plugins: ['@tarojs/plugin-framework-react', '@tarojs/plugin-platform-weapp'],
     defineConstants: {
-      'process.env.TARO_APP_API_BASE_URL': JSON.stringify(process.env.TARO_APP_API_BASE_URL || 'http://127.0.0.1:3000/api'),
+      'process.env.TARO_APP_API_BASE_URL': JSON.stringify(
+        process.env.TARO_APP_API_BASE_URL || defaultApiBaseUrl
+      ),
     },
     mini: {
       postcss: {

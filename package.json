@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev:weapp": "taro build --type weapp --watch",
+    "dev:weapp-test": "TARO_APP_API_BASE_URL=http://127.0.0.1:3000/api taro build --type weapp --watch",
     "build:weapp": "taro build --type weapp"
   },
   "dependencies": {
@@ -12,6 +13,7 @@
     "@tarojs/runtime": "^4.1.11",
     "@tarojs/taro": "^4.1.11",
     "cos-wx-sdk-v5": "^1.5.7",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

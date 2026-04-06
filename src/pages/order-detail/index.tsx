@@ -88,7 +88,7 @@ export default function OrderDetailPage() {
                     {item.color} / {item.size} × {item.quantity}
                   </View>
                 </View>
-                <Text className='list-item__price'>{formatCurrency(item.price * item.quantity)}</Text>
+                <Text className='list-item__price'>{formatCurrency((item.soldPrice || item.price) * item.quantity)}</Text>
               </View>
             </View>
           ))}

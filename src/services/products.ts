@@ -5,6 +5,7 @@ import {
   Product,
   ProductFilters,
   ProductOptions,
+  ScannedSkuProduct,
 } from '../types';
 
 function toQuery(params: ProductFilters = {}) {
@@ -24,6 +25,12 @@ export function getProducts(params: ProductFilters = {}) {
 export function getProduct(id: number) {
   return request<Product>({
     url: `/products/${id}`,
+  });
+}
+
+export function getProductByCode(code: string) {
+  return request<ScannedSkuProduct>({
+    url: `/products/by-code?code=${encodeURIComponent(code)}`,
   });
 }
 

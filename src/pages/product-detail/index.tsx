@@ -3,6 +3,7 @@ import Taro, { useDidShow, useLoad } from '@tarojs/taro';
 import { Button, Image, Input, Text, View } from '@tarojs/components';
 import { getProduct, updateProductImages } from '../../services/products';
 import { addToCart } from '../../utils/cart';
+import { setDirectOrderItem } from '../../utils/storage';
 import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
 import { formatCurrency, formatProductStatus } from '../../utils/format';
 import { selectAndUploadImages } from '../../utils/upload';
@@ -58,11 +59,34 @@ export default function ProductDetailPage() {
       skuCode: selectedSku.skuCode,
       image: product.mainImages[0] || null,
       price: selectedSku.salePrice,
+      soldPrice: selectedSku.salePrice,
       color: selectedSku.color,
       size: selectedSku.size,
       quantity,
       stock: selectedSku.availableStock,
     });
+  };
+
+  const handleDirectOrder = () => {
+    if (!product || !selectedSku) {
+      return;
+    }
+
+    setDirectOrderItem({
+      productId: product.id,
+      skuId: selectedSku.id,
+      productName: product.name,
+      skuCode: selectedSku.skuCode,
+      image: product.mainImages[0] || null,
+      price: selectedSku.salePrice,
+      soldPrice: selectedSku.salePrice,
+      color: selectedSku.color,
+      size: selectedSku.size,
+      quantity,
+      stock: selectedSku.availableStock,
+    });
+
+    Taro.navigateTo({ url: '/pages/order-create/index?mode=direct' });
   };
 
   const handleUpload = async (scene: 'main' | 'detail') => {
@@ -142,6 +166,14 @@ export default function ProductDetailPage() {
             <View className='card__title'>规格与库存</View>
             <View className='section-desc'>选中后即可直接加入购物车。</View>
           </View>
+          {hasManagerAccess(user) ? (
+            <Button
+              className='button button--ghost button--tiny'
+              onClick={() => Taro.navigateTo({ url: `/pages/product-label-print/index?id=${product.id}` })}
+            >
+              打印标签
+            </Button>
+          ) : null}
         </View>
         <View className='stack'>
           {product.specifications.map((spec) => (
@@ -159,6 +191,17 @@ export default function ProductDetailPage() {
               <View className='list-item__meta'>
                 <Text>可用库存 {spec.availableStock}</Text>
                 <Text>{spec.skuCode}</Text>
+                {hasManagerAccess(user) ? (
+                  <Text
+                    className='link'
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      Taro.navigateTo({ url: `/pages/product-label-print/index?id=${product.id}&skuId=${spec.id}` });
+                    }}
+                  >
+                    打印标签
+                  </Text>
+                ) : null}
               </View>
             </View>
           ))}
@@ -169,7 +212,7 @@ export default function ProductDetailPage() {
         <View className='card__header'>
           <View>
             <View className='card__title'>门店录单</View>
-            <View className='section-desc'>选好规格和数量后放入购物车。</View>
+            <View className='section-desc'>选好规格和数量后，可加入购物车或直接录单。</View>
           </View>
         </View>
         <View className='field'>
@@ -185,10 +228,13 @@ export default function ProductDetailPage() {
           <Button className='button button--primary' onClick={handleAddToCart}>
             加入购物车
           </Button>
-          <Button className='button button--ghost' onClick={() => Taro.navigateTo({ url: '/pages/cart/index' })}>
-            查看购物车
+          <Button className='button button--secondary' onClick={handleDirectOrder}>
+            直接录单
           </Button>
         </View>
+        <Button className='button button--ghost button--block section-gap' onClick={() => Taro.navigateTo({ url: '/pages/cart/index' })}>
+          查看购物车
+        </Button>
       </View>
 
       <View className='panel'>

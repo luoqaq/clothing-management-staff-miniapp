@@ -59,7 +59,9 @@ button::after {
 .page--detail,
 .page--form,
 .page--cart,
-.page--profile {
+.page--profile,
+.page--scan-result,
+.page--print {
   gap: 22px;
 }
 
@@ -69,7 +71,9 @@ button::after {
 .page--form,
 .page--cart,
 .page--profile,
-.page--auth {
+.page--auth,
+.page--scan-result,
+.page--print {
   display: flex;
   flex-direction: column;
 }
@@ -225,6 +229,16 @@ button::after {
   color: var(--text-contrast);
 }
 
+.panel--compact {
+  padding: 20px;
+}
+
+.panel--sticky-bottom {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+}
+
 .section-gap {
   margin-top: 24px;
 }
@@ -270,6 +284,10 @@ button::after {
 
 .row--start {
   align-items: flex-start;
+}
+
+.row--between {
+  justify-content: space-between;
 }
 
 .row--wrap {
@@ -399,6 +417,12 @@ button::after {
   color: #fff6f4;
   background: linear-gradient(135deg, #b56459, #8f473f);
   border: 0;
+}
+
+.button--danger-ghost {
+  color: var(--danger);
+  background: rgba(159, 76, 70, 0.08);
+  border-color: rgba(159, 76, 70, 0.2);
 }
 
 .button--tiny {
@@ -540,6 +564,16 @@ button::after {
   padding: 20px;
 }
 
+.list-item--scan {
+  padding: 22px;
+}
+
+.list-item__content {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16px;
+}
+
 .list-item__title {
   font-size: 30px;
   font-weight: 700;
@@ -572,7 +606,7 @@ button::after {
 }
 
 .thumbnail {
-  width: 100%;
+  width: 180px;
   height: 180px;
   border-radius: 22px;
   background: linear-gradient(135deg, rgba(183, 138, 92, 0.2), rgba(107, 94, 83, 0.12));
@@ -581,6 +615,22 @@ button::after {
 .thumbnail--small {
   width: 124px;
   height: 124px;
+  flex-shrink: 0;
+}
+
+.thumbnail--placeholder {
+  background: linear-gradient(135deg, rgba(183, 138, 92, 0.15), rgba(107, 94, 83, 0.08));
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.price--large {
+  font-size: 40px;
+  font-weight: 700;
 }
 
 .summary-strip {
@@ -732,4 +782,112 @@ button::after {
 
 .w-full {
   width: 100%;
+}
+
+.link {
+  color: var(--bg-accent);
+  text-decoration: underline;
+}
+
+/* 图片上传缩略图列表样式 */
+.image-section {
+  margin-top: 24px;
+}
+
+.image-section__title {
+  font-size: 24px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+.image-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.image-item {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(183, 138, 92, 0.1), rgba(107, 94, 83, 0.06));
+}
+
+.image-item__thumb {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-md);
+}
+
+.image-item__delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.image-item__delete-icon {
+  color: #fff;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+/* 二维码状态标签 */
+.qr-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.qr-status-tag--loading {
+  background: rgba(183, 138, 92, 0.12);
+  color: var(--text-secondary);
+}
+
+.qr-status-tag--error {
+  color: var(--danger);
+  padding: 8px 0;
+}
+
+.qr-status-tag--ready {
+  color: var(--bg-accent);
+  padding: 8px 0;
+}
+
+.qr-status-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-accent);
+  animation: qr-status-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes qr-status-blink {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.qr-status-text {
+  font-size: 22px;
 }

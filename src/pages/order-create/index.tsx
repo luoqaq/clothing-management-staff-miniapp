@@ -1,19 +1,37 @@
-import { useState } from 'react';
-import Taro, { useDidShow } from '@tarojs/taro';
+import { useRef, useState } from 'react';
+import Taro, { useDidShow, useLoad } from '@tarojs/taro';
 import { Button, Input, Picker, Text, Textarea, View } from '@tarojs/components';
 import { getAgeBuckets } from '../../services/customers';
 import { createOrder } from '../../services/orders';
-import { CartItem, CustomerAgeBucket } from '../../types';
+import { CustomerAgeBucket } from '../../types';
 import { requireAuth } from '../../utils/auth';
 import { formatCurrency } from '../../utils/format';
-import { clearCart, getCart } from '../../utils/storage';
+import { clearCart, clearDirectOrderItem, getCart, getDirectOrderItem } from '../../utils/storage';
+import { clearScannedItems, getScannedItems } from '../../utils/scan';
 
 const paymentMethods = ['现金', '微信', '支付宝'];
 
+type OrderMode = 'cart' | 'direct' | 'scan';
+
+interface OrderItem {
+  skuId: number;
+  productId: number;
+  productName: string;
+  skuCode: string;
+  image?: string | null;
+  price: number;
+  soldPrice: number;
+  color?: string | null;
+  size?: string | null;
+  quantity: number;
+}
+
 export default function OrderCreatePage() {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<OrderItem[]>([]);
   const [ageBuckets, setAgeBuckets] = useState<CustomerAgeBucket[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<OrderMode>('cart');
+  const modeRef = useRef<OrderMode>('cart');
   const [form, setForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -23,11 +41,85 @@ export default function OrderCreatePage() {
     paymentMethod: paymentMethods[0],
   });
 
+  const convertToOrderItems = (sourceItems: any[]): OrderItem[] => {
+    return sourceItems.map((item) => ({
+      skuId: item.skuId,
+      productId: item.productId,
+      productName: item.productName,
+      skuCode: item.skuCode,
+      image: item.image ?? null,
+      price: item.price ?? item.salePrice ?? 0,
+      soldPrice: item.soldPrice ?? item.price ?? item.salePrice ?? 0,
+      color: item.color ?? null,
+      size: item.size ?? null,
+      quantity: item.quantity,
+    }));
+  };
+
+  const updateSoldPrice = (skuId: number, soldPrice: number) => {
+    setItems((current) =>
+      current.map((item) => (item.skuId === skuId ? { ...item, soldPrice } : item))
+    );
+  };
+
+  const loadItems = (currentMode: OrderMode) => {
+    let sourceItems: any[] = [];
+    
+    switch (currentMode) {
+      case 'direct':
+        const directItem = getDirectOrderItem();
+        sourceItems = directItem ? [directItem] : [];
+        break;
+      case 'scan':
+        sourceItems = getScannedItems();
+        break;
+      case 'cart':
+      default:
+        sourceItems = getCart();
+        break;
+    }
+    
+    setItems(convertToOrderItems(sourceItems));
+  };
+
+  const getModeLabel = () => {
+    switch (mode) {
+      case 'direct':
+        return '单品直购';
+      case 'scan':
+        return '扫码录单';
+      case 'cart':
+      default:
+        return '购物车';
+    }
+  };
+
+  const getSubtitle = () => {
+    switch (mode) {
+      case 'direct':
+        return '已带入扫码识别到的单个规格，确认客户信息后可直接成单。';
+      case 'scan':
+        return '已带入扫码列表中的商品，确认客户信息后可统一提交。';
+      case 'cart':
+      default:
+        return '先确认客户与收款信息，再统一提交购物车中的商品。';
+    }
+  };
+
+  useLoad((params) => {
+    const currentMode = (params.mode as OrderMode) || 'cart';
+    modeRef.current = currentMode;
+    setMode(currentMode);
+    if (requireAuth()) {
+      loadItems(currentMode);
+    }
+  });
+
   useDidShow(() => {
     if (!requireAuth()) {
       return;
     }
-    setItems(getCart());
+    loadItems(modeRef.current);
     void (async () => {
       try {
         const result = await getAgeBuckets();
@@ -38,11 +130,26 @@ export default function OrderCreatePage() {
     })();
   });
 
-  const totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalAmount = items.reduce((sum, item) => sum + item.soldPrice * item.quantity, 0);
+
+  const clearSourceItems = () => {
+    switch (mode) {
+      case 'direct':
+        clearDirectOrderItem();
+        break;
+      case 'scan':
+        clearScannedItems();
+        break;
+      case 'cart':
+      default:
+        clearCart();
+        break;
+    }
+  };
 
   const submit = async () => {
     if (!items.length) {
-      Taro.showToast({ title: '购物车为空', icon: 'none' });
+      Taro.showToast({ title: '商品列表为空', icon: 'none' });
       return;
     }
 
@@ -63,9 +170,12 @@ export default function OrderCreatePage() {
         items: items.map((item) => ({
           skuId: item.skuId,
           quantity: item.quantity,
+          soldPrice: item.soldPrice,
         })),
       });
-      clearCart();
+      
+      clearSourceItems();
+      
       Taro.showToast({ title: '订单已创建', icon: 'success' });
       Taro.redirectTo({ url: `/pages/order-detail/index?id=${order.id}` });
     } catch (error: any) {
@@ -78,10 +188,11 @@ export default function OrderCreatePage() {
   return (
     <View className='page page--form'>
       <View className='page__header'>
-        <View className='page__eyebrow'>Create Order</View>
+        <View className='page__eyebrow'>Create Order · {getModeLabel()}</View>
         <View className='page__title'>门店录单</View>
-        <View className='page__subtitle'>先确认客户与收款信息，再统一提交购物车中的商品。</View>
+        <View className='page__subtitle'>{getSubtitle()}</View>
       </View>
+      
       <View className='panel'>
         <View className='card__header'>
           <View>
@@ -141,13 +252,13 @@ export default function OrderCreatePage() {
         <View className='card__header'>
           <View>
             <View className='card__title'>商品清单</View>
-            <View className='section-desc'>确认颜色、尺码和数量后再提交。</View>
+            <View className='section-desc'>共 {items.length} 款商品，{items.reduce((sum, item) => sum + item.quantity, 0)} 件。</View>
           </View>
         </View>
         {items.length === 0 ? (
           <View className='empty-state'>
             <View className='empty-state__symbol'>单</View>
-            <Text>购物车为空</Text>
+            <Text>暂无商品</Text>
           </View>
         ) : (
           <View className='list'>
@@ -160,7 +271,26 @@ export default function OrderCreatePage() {
                       {item.color} / {item.size} × {item.quantity}
                     </View>
                   </View>
-                  <Text className='list-item__price'>{formatCurrency(item.price * item.quantity)}</Text>
+                  <View className='row' style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <View className='row' style={{ alignItems: 'center', marginBottom: '8rpx' }}>
+                      <Text style={{ fontSize: '24rpx', color: '#999', marginRight: '12rpx' }}>原价 ¥{item.price}</Text>
+                    </View>
+                    <View className='row' style={{ alignItems: 'center' }}>
+                      <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>售出价</Text>
+                      <Input
+                        type='digit'
+                        style={{ width: '120rpx', textAlign: 'right', borderBottom: '1rpx solid #ddd' }}
+                        value={String(item.soldPrice)}
+                        onInput={(e) => {
+                          const value = parseFloat(e.detail.value);
+                          updateSoldPrice(item.skuId, isNaN(value) ? 0 : value);
+                        }}
+                      />
+                    </View>
+                    <Text className='list-item__price' style={{ marginTop: '8rpx' }}>
+                      {formatCurrency(item.soldPrice * item.quantity)}
+                    </Text>
+                  </View>
                 </View>
               </View>
             ))}

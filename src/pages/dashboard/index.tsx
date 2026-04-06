@@ -96,6 +96,14 @@ export default function DashboardPage() {
             <View className='quick-link__title'>门店录单</View>
             <View className='quick-link__desc'>快速提交订单</View>
           </View>
+          <View
+            className='quick-link'
+            onClick={() => Taro.navigateTo({ url: '/pages/scan-result/index' })}
+          >
+            <View className='quick-link__icon'>扫</View>
+            <View className='quick-link__title'>扫码录单</View>
+            <View className='quick-link__desc'>连续扫码快速成单</View>
+          </View>
         </View>
       </View>
 

@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro';
-import { CART_KEY, TOKEN_KEY, USER_KEY } from '../constants';
+import { CART_KEY, DIRECT_ORDER_KEY, TOKEN_KEY, USER_KEY } from '../constants';
 import { CartItem, User } from '../types';
 
 export function getToken() {
@@ -36,4 +36,16 @@ export function setCart(items: CartItem[]) {
 
 export function clearCart() {
   Taro.removeStorageSync(CART_KEY);
+}
+
+export function getDirectOrderItem() {
+  return Taro.getStorageSync<CartItem | null>(DIRECT_ORDER_KEY) || null;
+}
+
+export function setDirectOrderItem(item: CartItem) {
+  Taro.setStorageSync(DIRECT_ORDER_KEY, item);
+}
+
+export function clearDirectOrderItem() {
+  Taro.removeStorageSync(DIRECT_ORDER_KEY);
 }
