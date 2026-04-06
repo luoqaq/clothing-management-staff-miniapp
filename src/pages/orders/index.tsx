@@ -28,7 +28,6 @@ export default function OrdersPage() {
       const result = await getOrders({
         page: 1,
         pageSize: 20,
-        source: 'staff_miniapp',
         status: nextStatus,
       });
       setOrders(result.items);

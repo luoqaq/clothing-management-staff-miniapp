@@ -220,6 +220,7 @@ export interface CreateOrderPayload {
   note?: string;
   paymentMethod?: string;
   paymentStatus?: 'unpaid' | 'paid' | 'refunded';
+  status?: OrderStatus;
   items: Array<{
     skuId: number;
     quantity: number;

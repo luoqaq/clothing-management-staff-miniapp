@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Taro, { useDidShow, useLoad } from '@tarojs/taro';
 import { Button, Input, Text, Textarea, View } from '@tarojs/components';
-import { cancelOrder, getOrder, shipOrder, updateOrderStatus } from '../../services/orders';
+import { cancelOrder, getOrder, updateOrderStatus } from '../../services/orders';
 import { Order } from '../../types';
 import { requireAuth } from '../../utils/auth';
 import { formatCurrency, formatOrderStatus } from '../../utils/format';
@@ -9,8 +9,6 @@ import { formatCurrency, formatOrderStatus } from '../../utils/format';
 export default function OrderDetailPage() {
   const [id, setId] = useState(0);
   const [order, setOrder] = useState<Order | null>(null);
-  const [shippingCompany, setShippingCompany] = useState('');
-  const [trackingNumber, setTrackingNumber] = useState('');
   const [cancelReason, setCancelReason] = useState('');
 
   const load = async (nextId = id) => {
@@ -103,35 +101,14 @@ export default function OrderDetailPage() {
           </View>
         </View>
         <View className='btn-row'>
-          {order.status === 'pending' ? (
-            <Button className='button button--dark button--tiny' onClick={() => void act(() => updateOrderStatus(order.id, 'confirmed'))}>
-              确认订单
-            </Button>
-          ) : null}
-          {order.status === 'shipped' ? (
+          {order.status === 'confirmed' ? (
             <Button className='button button--primary button--tiny' onClick={() => void act(() => updateOrderStatus(order.id, 'delivered'))}>
               标记完成
             </Button>
           ) : null}
         </View>
 
-        {order.status === 'confirmed' ? (
-          <View className='section-gap order-actions'>
-            <View className='field'>
-              <Text className='field__label'>物流公司</Text>
-              <Input className='input' value={shippingCompany} onInput={(e) => setShippingCompany(e.detail.value)} />
-            </View>
-            <View className='field'>
-              <Text className='field__label'>运单号</Text>
-              <Input className='input' value={trackingNumber} onInput={(e) => setTrackingNumber(e.detail.value)} />
-            </View>
-            <Button className='button button--primary button--block' onClick={() => void act(() => shipOrder(order.id, trackingNumber, shippingCompany))}>
-              发货
-            </Button>
-          </View>
-        ) : null}
-
-        {['pending', 'confirmed'].includes(order.status) ? (
+        {['confirmed', 'pending'].includes(order.status) ? (
           <View className='section-gap order-actions'>
             <Textarea className='textarea' value={cancelReason} onInput={(e) => setCancelReason(e.detail.value)} placeholder='取消原因' />
             <Button className='button button--danger button--block' onClick={() => void act(() => cancelOrder(order.id, cancelReason || '门店取消'))}>

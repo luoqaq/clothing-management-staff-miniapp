@@ -94,7 +94,15 @@ export default function DashboardPage() {
           <View className='quick-link' onClick={() => Taro.navigateTo({ url: '/pages/order-create/index' })}>
             <View className='quick-link__icon'>单</View>
             <View className='quick-link__title'>门店录单</View>
-            <View className='quick-link__desc'>快速提交订单</View>
+            <View className='quick-link__desc'>购物车模式录单</View>
+          </View>
+          <View
+            className='quick-link'
+            onClick={() => Taro.navigateTo({ url: '/pages/order-create/index?mode=manual' })}
+          >
+            <View className='quick-link__icon'>选</View>
+            <View className='quick-link__title'>选款录单</View>
+            <View className='quick-link__desc'>浏览选择商品录单</View>
           </View>
           <View
             className='quick-link'

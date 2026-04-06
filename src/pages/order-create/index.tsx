@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import Taro, { useDidShow, useLoad } from '@tarojs/taro';
-import { Button, Input, Picker, Text, Textarea, View } from '@tarojs/components';
+import { Button, Image, Input, Picker, ScrollView, Text, Textarea, View } from '@tarojs/components';
 import { getAgeBuckets } from '../../services/customers';
 import { createOrder } from '../../services/orders';
-import { CustomerAgeBucket } from '../../types';
+import { getProducts } from '../../services/products';
+import { CustomerAgeBucket, Product, ProductSpecification } from '../../types';
 import { requireAuth } from '../../utils/auth';
 import { formatCurrency } from '../../utils/format';
 import { clearCart, clearDirectOrderItem, getCart, getDirectOrderItem } from '../../utils/storage';
@@ -11,7 +12,7 @@ import { clearScannedItems, getScannedItems } from '../../utils/scan';
 
 const paymentMethods = ['现金', '微信', '支付宝'];
 
-type OrderMode = 'cart' | 'direct' | 'scan';
+type OrderMode = 'cart' | 'direct' | 'scan' | 'manual';
 
 interface OrderItem {
   skuId: number;
@@ -40,6 +41,86 @@ export default function OrderCreatePage() {
     note: '',
     paymentMethod: paymentMethods[0],
   });
+
+  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedSpec, setSelectedSpec] = useState<ProductSpecification | null>(null);
+  const [selectQuantity, setSelectQuantity] = useState(1);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  const searchProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const result = await getProducts({
+        search: productSearch,
+        page: 1,
+        pageSize: 20,
+      });
+      setProducts(result.items);
+    } catch (error: any) {
+      Taro.showToast({ title: error.message || '加载商品失败', icon: 'none' });
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const handleSelectProduct = (product: Product) => {
+    setSelectedProduct(product);
+    if (product.specifications.length > 0) {
+      setSelectedSpec(product.specifications[0]);
+    }
+  };
+
+  const handleAddProduct = () => {
+    if (!selectedProduct || !selectedSpec) {
+      Taro.showToast({ title: '请选择商品规格', icon: 'none' });
+      return;
+    }
+
+    const newItem: OrderItem = {
+      skuId: selectedSpec.id,
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      skuCode: selectedSpec.skuCode,
+      image: selectedProduct.mainImages[0] || null,
+      price: selectedSpec.salePrice,
+      soldPrice: selectedSpec.salePrice,
+      color: selectedSpec.color,
+      size: selectedSpec.size,
+      quantity: selectQuantity,
+    };
+
+    setItems((current) => {
+      const existing = current.find((item) => item.skuId === newItem.skuId);
+      if (existing) {
+        return current.map((item) =>
+          item.skuId === newItem.skuId
+            ? { ...item, quantity: item.quantity + newItem.quantity }
+            : item
+        );
+      }
+      return [...current, newItem];
+    });
+
+    setShowProductSelector(false);
+    setSelectedProduct(null);
+    setSelectedSpec(null);
+    setSelectQuantity(1);
+    setProductSearch('');
+    setProducts([]);
+    Taro.showToast({ title: '已添加商品', icon: 'success' });
+  };
+
+  const closeSelector = () => {
+    setShowProductSelector(false);
+    setSelectedProduct(null);
+    setSelectedSpec(null);
+    setSelectQuantity(1);
+    setProductSearch('');
+    setProducts([]);
+  };
 
   const convertToOrderItems = (sourceItems: any[]): OrderItem[] => {
     return sourceItems.map((item) => ({
@@ -88,6 +169,8 @@ export default function OrderCreatePage() {
         return '单品直购';
       case 'scan':
         return '扫码录单';
+      case 'manual':
+        return '手动录单';
       case 'cart':
       default:
         return '购物车';
@@ -100,6 +183,8 @@ export default function OrderCreatePage() {
         return '已带入扫码识别到的单个规格，确认客户信息后可直接成单。';
       case 'scan':
         return '已带入扫码列表中的商品，确认客户信息后可统一提交。';
+      case 'manual':
+        return '手动选择商品添加到订单，确认客户信息后提交。';
       case 'cart':
       default:
         return '先确认客户与收款信息，再统一提交购物车中的商品。';
@@ -111,7 +196,9 @@ export default function OrderCreatePage() {
     modeRef.current = currentMode;
     setMode(currentMode);
     if (requireAuth()) {
-      loadItems(currentMode);
+      if (currentMode !== 'manual') {
+        loadItems(currentMode);
+      }
     }
   });
 
@@ -147,6 +234,10 @@ export default function OrderCreatePage() {
     }
   };
 
+  const removeItem = (skuId: number) => {
+    setItems((current) => current.filter((item) => item.skuId !== skuId));
+  };
+
   const submit = async () => {
     if (!items.length) {
       Taro.showToast({ title: '商品列表为空', icon: 'none' });
@@ -167,6 +258,7 @@ export default function OrderCreatePage() {
         ageBucketId: form.ageBucketId,
         note: form.note,
         paymentMethod: form.paymentMethod,
+        status: 'confirmed',
         items: items.map((item) => ({
           skuId: item.skuId,
           quantity: item.quantity,
@@ -177,7 +269,7 @@ export default function OrderCreatePage() {
       clearSourceItems();
       
       Taro.showToast({ title: '订单已创建', icon: 'success' });
-      Taro.redirectTo({ url: `/pages/order-detail/index?id=${order.id}` });
+      Taro.switchTab({ url: '/pages/orders/index' });
     } catch (error: any) {
       Taro.showToast({ title: error.message || '录单失败', icon: 'none' });
     } finally {
@@ -254,6 +346,9 @@ export default function OrderCreatePage() {
             <View className='card__title'>商品清单</View>
             <View className='section-desc'>共 {items.length} 款商品，{items.reduce((sum, item) => sum + item.quantity, 0)} 件。</View>
           </View>
+          <Button className='button button--ghost button--tiny' onClick={() => setShowProductSelector(true)}>
+            + 添加商品
+          </Button>
         </View>
         {items.length === 0 ? (
           <View className='empty-state'>
@@ -287,9 +382,17 @@ export default function OrderCreatePage() {
                         }}
                       />
                     </View>
-                    <Text className='list-item__price' style={{ marginTop: '8rpx' }}>
-                      {formatCurrency(item.soldPrice * item.quantity)}
-                    </Text>
+                    <View className='row' style={{ alignItems: 'center', marginTop: '8rpx' }}>
+                      <Text className='list-item__price' style={{ marginRight: '16rpx' }}>
+                        {formatCurrency(item.soldPrice * item.quantity)}
+                      </Text>
+                      <Text
+                        style={{ fontSize: '24rpx', color: '#ff4d4f' }}
+                        onClick={() => removeItem(item.skuId)}
+                      >
+                        删除
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -306,6 +409,148 @@ export default function OrderCreatePage() {
       <Button className='button button--primary button--block' loading={submitting} onClick={submit}>
         提交订单
       </Button>
+
+      {showProductSelector && (
+        <View className='modal-overlay' onClick={closeSelector}>
+          <View className='modal-panel' onClick={(e) => e.stopPropagation()}>
+            <View className='modal-header'>
+              <View>
+                <View className='modal-title'>选择商品</View>
+                <View className='modal-subtitle'>搜索并选择要添加的商品规格</View>
+              </View>
+              <Text className='modal-close' onClick={closeSelector}>✕</Text>
+            </View>
+
+            {!selectedProduct ? (
+              <>
+                <View className='field'>
+                  <Input
+                    className='input'
+                    value={productSearch}
+                    onInput={(e) => setProductSearch(e.detail.value)}
+                    placeholder='搜索商品名称或款号'
+                    onConfirm={() => searchProducts()}
+                  />
+                  <Button
+                    className='button button--primary button--tiny section-gap'
+                    loading={loadingProducts}
+                    onClick={searchProducts}
+                  >
+                    搜索
+                  </Button>
+                </View>
+
+                <ScrollView scrollY style={{ maxHeight: '600rpx' }}>
+                  {products.length === 0 ? (
+                    <View className='empty-state'>
+                      <View className='empty-state__symbol'>搜</View>
+                      <Text>{loadingProducts ? '搜索中...' : '请输入关键词搜索商品'}</Text>
+                    </View>
+                  ) : (
+                    <View className='list'>
+                      {products.map((product) => (
+                        <View
+                          key={product.id}
+                          className='list-item'
+                          onClick={() => handleSelectProduct(product)}
+                        >
+                          <View className='row row--start'>
+                            {product.mainImages[0] ? (
+                              <Image
+                                className='thumbnail'
+                                src={product.mainImages[0]}
+                                mode='aspectFill'
+                                style={{ width: '100rpx', height: '100rpx', marginRight: '16rpx' }}
+                              />
+                            ) : null}
+                            <View>
+                              <View className='list-item__title'>{product.name}</View>
+                              <View className='list-item__subtitle'>
+                                {product.productCode} · {product.specCount} 个规格
+                              </View>
+                              <Text className='list-item__price'>{formatCurrency(product.minPrice)} 起</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            ) : (
+              <>
+                <View className='panel panel--light section-gap'>
+                  <View className='row row--start'>
+                    {selectedProduct.mainImages[0] ? (
+                      <Image
+                        className='thumbnail'
+                        src={selectedProduct.mainImages[0]}
+                        mode='aspectFill'
+                        style={{ width: '120rpx', height: '120rpx', marginRight: '16rpx' }}
+                      />
+                    ) : null}
+                    <View>
+                      <View className='list-item__title'>{selectedProduct.name}</View>
+                      <View className='list-item__subtitle'>{selectedProduct.productCode}</View>
+                      <Text
+                        className='link'
+                        onClick={() => {
+                          setSelectedProduct(null);
+                          setSelectedSpec(null);
+                        }}
+                      >
+                        ← 重新选择
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View className='section-gap'>
+                  <View className='field__label'>选择规格</View>
+                  <View className='stack' style={{ marginTop: '16rpx' }}>
+                    {selectedProduct.specifications.map((spec) => (
+                      <View
+                        key={spec.id}
+                        className={`detail-option ${selectedSpec?.id === spec.id ? 'detail-option--selected' : ''}`}
+                        onClick={() => setSelectedSpec(spec)}
+                      >
+                        <View className='row row--start'>
+                          <Text>{spec.color} / {spec.size}</Text>
+                          <Text className={selectedSpec?.id === spec.id ? 'success' : 'muted'}>
+                            {formatCurrency(spec.salePrice)}
+                          </Text>
+                        </View>
+                        <View className='list-item__meta'>
+                          <Text>可用库存 {spec.availableStock}</Text>
+                          <Text>{spec.skuCode}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                <View className='field section-gap'>
+                  <Text className='field__label'>数量</Text>
+                  <Input
+                    className='input'
+                    type='number'
+                    value={String(selectQuantity)}
+                    onInput={(e) => setSelectQuantity(Math.max(1, Number(e.detail.value || 1)))}
+                  />
+                </View>
+
+                <Button
+                  className='button button--primary button--block section-gap'
+                  onClick={handleAddProduct}
+                  disabled={!selectedSpec}
+                >
+                  确认添加
+                </Button>
+              </>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
