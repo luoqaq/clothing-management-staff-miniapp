@@ -5,7 +5,8 @@
   "scripts": {
     "dev:weapp": "taro build --type weapp --watch",
     "dev:weapp-test": "TARO_APP_API_BASE_URL=http://127.0.0.1:3000/api taro build --type weapp --watch",
-    "build:weapp": "taro build --type weapp"
+    "build:weapp": "taro build --type weapp",
+    "build:weapp-test": "TARO_APP_API_BASE_URL=http://127.0.0.1:3000/api taro build --type weapp"
   },
   "dependencies": {
     "@tarojs/components": "^4.1.11",

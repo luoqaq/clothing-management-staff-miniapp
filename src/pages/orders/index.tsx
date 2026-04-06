@@ -4,7 +4,7 @@ import { Button, Picker, Text, View } from '@tarojs/components';
 import { getOrders } from '../../services/orders';
 import { Order, OrderStatus } from '../../types';
 import { requireAuth } from '../../utils/auth';
-import { formatCurrency, formatOrderStatus } from '../../utils/format';
+import { formatCurrency, formatDateTime, formatOrderStatus } from '../../utils/format';
 
 const orderStatuses: Array<{ label: string; value: '' | OrderStatus }> = [
   { label: '全部', value: '' },
@@ -87,6 +87,7 @@ export default function OrdersPage() {
               <View className='list-item__meta'>
                 <Text>{order.items.length} 件商品</Text>
                 <Text>{formatCurrency(order.finalAmount)}</Text>
+                <Text>{formatDateTime(order.createdAt)}</Text>
               </View>
             </View>
           ))}
