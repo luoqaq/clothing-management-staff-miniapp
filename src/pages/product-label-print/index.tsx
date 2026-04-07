@@ -20,9 +20,16 @@ const CANVAS_SCALE = 2;   // 导出时再放大2倍，最终 1440x2160
 // 品牌文案配置
 const BRAND_LINE1 = 'ChuChuNight';     // 品牌文案第一行
 const BRAND_LINE2 = '棉眠小铺 면면샵';   // 品牌文案第二行
-const BRAND_LINE1_FONT_SIZE = 56;       // 第一行字体大小
-const BRAND_LINE2_FONT_SIZE = 42;       // 第二行字体大小，与颜色尺寸字体大小保持一致
-const BRAND_LINE_HEIGHT = 70;           // 行高
+const BRAND_LINE1_FONT_SIZE = 64;       // 第一行字体大小
+const BRAND_LINE2_FONT_SIZE = 48;       // 第二行字体大小，与颜色尺寸字体大小保持一致
+const BRAND_LINE_HEIGHT = 78;           // 行高
+const PRODUCT_NAME_FONT_SIZE = 66;
+const PRODUCT_NAME_MIN_FONT_SIZE = 48;
+const PRODUCT_DETAIL_FONT_SIZE = 52;
+const PRODUCT_DETAIL_MIN_FONT_SIZE = 40;
+const PRICE_SYMBOL_FONT_SIZE = 48;
+const PRICE_VALUE_FONT_SIZE = 108;
+const FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 export default function ProductLabelPrintPage() {
   const [productId, setProductId] = useState(0);
@@ -162,11 +169,11 @@ export default function ProductLabelPrintPage() {
     ctx.setTextAlign('center');
     
     // 第一行 - 400字重，使用系统默认字体
-    (ctx as any).font = `400 ${BRAND_LINE1_FONT_SIZE}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+    (ctx as any).font = `400 ${BRAND_LINE1_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.fillText(BRAND_LINE1, width / 2, brandY + BRAND_LINE1_FONT_SIZE);
     
     // 第二行 - 400字重，使用系统默认字体
-    (ctx as any).font = `400 ${BRAND_LINE2_FONT_SIZE}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+    (ctx as any).font = `400 ${BRAND_LINE2_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.fillText(BRAND_LINE2, width / 2, brandY + BRAND_LINE1_FONT_SIZE + BRAND_LINE_HEIGHT);
     
     // 品牌区域分隔线
@@ -181,24 +188,30 @@ export default function ProductLabelPrintPage() {
     // 商品信息
     ctx.setFillStyle('#000000');
     ctx.setTextAlign('center');
-    const infoY = brandDividerY + 72;
-    (ctx as any).font = '51px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-    ctx.fillText(label.productName, width / 2, infoY);
+    const infoY = brandDividerY + 82;
+    drawCenteredFittedText(ctx, label.productName, width / 2, infoY, {
+      fontSize: PRODUCT_NAME_FONT_SIZE,
+      minFontSize: PRODUCT_NAME_MIN_FONT_SIZE,
+      maxWidth: width - padding * 2,
+      fontWeight: 500,
+    });
 
-    (ctx as any).font = '42px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-    ctx.fillText(`${label.color} | ${label.size}`, width / 2, infoY + 84);
+    drawCenteredFittedText(ctx, `${label.color} | ${label.size}`, width / 2, infoY + 96, {
+      fontSize: PRODUCT_DETAIL_FONT_SIZE,
+      minFontSize: PRODUCT_DETAIL_MIN_FONT_SIZE,
+      maxWidth: width - padding * 2,
+      fontWeight: 400,
+    });
 
     // 价格（居中）- ¥符号用小字号，与web端保持一致
-    const priceY = infoY + 210;
+    const priceY = infoY + 240;
     const priceText = label.salePrice.toFixed(2);
     const priceSymbol = '¥';
-    const priceSymbolFontSize = 40; // 小字号
-    const priceValueFontSize = 84;  // 大字号
     const priceSymbolMarginRight = 12;
 
     // 估算文字宽度（¥符号按0.5倍字号，数字按0.6倍字号）
-    const symbolWidth = priceSymbolFontSize * 0.5;
-    const valueWidth = priceText.length * priceValueFontSize * 0.6;
+    const symbolWidth = PRICE_SYMBOL_FONT_SIZE * 0.5;
+    const valueWidth = priceText.length * PRICE_VALUE_FONT_SIZE * 0.6;
     const totalWidth = symbolWidth + priceSymbolMarginRight + valueWidth;
 
     // 计算起始位置（居中）
@@ -208,11 +221,11 @@ export default function ProductLabelPrintPage() {
 
     // 绘制 ¥ 符号（小字号，基线对齐）
     ctx.setTextAlign('center');
-    (ctx as any).font = `400 ${priceSymbolFontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+    (ctx as any).font = `400 ${PRICE_SYMBOL_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.fillText(priceSymbol, symbolX, priceY - 12); // 稍微上移对齐数值的视觉中心
 
     // 绘制价格数值（大字号）
-    (ctx as any).font = `400 ${priceValueFontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+    (ctx as any).font = `400 ${PRICE_VALUE_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.fillText(priceText, valueX, priceY);
 
     // 分隔线
@@ -247,7 +260,7 @@ export default function ProductLabelPrintPage() {
       ctx.setFillStyle('#eeeeee');
       ctx.fillRect(qrImageX, qrImageY, qrImageSize, qrImageSize);
       ctx.setFillStyle('#999999');
-      (ctx as any).font = '36px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+      (ctx as any).font = `36px ${FONT_FAMILY}`;
       ctx.fillText('二维码', width / 2, qrBoxY + qrBoxSize / 2 + 12);
     }
 
@@ -277,6 +290,36 @@ export default function ProductLabelPrintPage() {
   };
 
   // 绘制圆角矩形路径
+  const drawCenteredFittedText = (
+    ctx: Taro.CanvasContext,
+    text: string,
+    x: number,
+    y: number,
+    options: {
+      fontSize: number;
+      minFontSize: number;
+      maxWidth: number;
+      fontWeight?: number;
+    }
+  ) => {
+    const { fontSize, minFontSize, maxWidth, fontWeight = 400 } = options;
+    let finalFontSize = fontSize;
+    const measureText = (value: string, size: number) => {
+      (ctx as any).font = `${fontWeight} ${size}px ${FONT_FAMILY}`;
+      if (typeof (ctx as any).measureText === 'function') {
+        return (ctx as any).measureText(value).width;
+      }
+      return value.length * size * 0.6;
+    };
+
+    while (finalFontSize > minFontSize && measureText(text, finalFontSize) > maxWidth) {
+      finalFontSize -= 2;
+    }
+
+    (ctx as any).font = `${fontWeight} ${finalFontSize}px ${FONT_FAMILY}`;
+    ctx.fillText(text, x, y);
+  };
+
   const drawRoundRectPath = (
     ctx: Taro.CanvasContext,
     x: number,
