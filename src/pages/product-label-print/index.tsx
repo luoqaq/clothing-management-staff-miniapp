@@ -4,12 +4,13 @@ import { Button, Canvas, Text, View } from '@tarojs/components';
 import { getProduct } from '../../services/products';
 import { Product, ProductLabelItem } from '../../types';
 import { formatCurrency } from '../../utils/format';
+import { createQRCodeMatrix, drawQRCodeMatrix, QRCodeMatrix } from '../../utils/qrcode';
 
 type QRCodeStatus = 'loading' | 'success' | 'error';
 
 interface QRCodeState {
-  path: string;
   status: QRCodeStatus;
+  matrix: QRCodeMatrix | null;
 }
 
 // 标签尺寸配置（高清绘制，避免锯齿）
@@ -54,53 +55,42 @@ export default function ProductLabelPrintPage() {
     if (labels.length === 0) return;
 
     const generateQRCodes = async () => {
-      // 初始化所有为 loading 状态
       const initialMap: Record<string, QRCodeState> = {};
       for (const label of labels) {
-        initialMap[label.barcode] = { path: '', status: 'loading' };
+        initialMap[label.barcode] = { status: 'loading', matrix: null };
       }
       setQrCodeMap(initialMap);
 
-      // 逐个下载二维码
-      for (const label of labels) {
-        await downloadQRCode(label.barcode);
-      }
+      await Promise.all(labels.map((label) => generateQRCode(label.barcode)));
     };
 
     void generateQRCodes();
   }, [labels]);
 
-  // 下载单个二维码
-  const downloadQRCode = async (barcode: string): Promise<void> => {
+  const generateQRCode = async (barcode: string): Promise<void> => {
     setQrCodeMap((prev) => ({
       ...prev,
-      [barcode]: { path: prev[barcode]?.path || '', status: 'loading' },
+      [barcode]: { status: 'loading', matrix: prev[barcode]?.matrix || null },
     }));
 
     try {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=${encodeURIComponent(barcode)}`;
-      const downloadRes = await Taro.downloadFile({ url: qrUrl });
-      if (downloadRes.statusCode === 200 && downloadRes.tempFilePath) {
-        setQrCodeMap((prev) => ({
-          ...prev,
-          [barcode]: { path: downloadRes.tempFilePath, status: 'success' },
-        }));
-      } else {
-        throw new Error('下载失败');
-      }
-    } catch (err) {
-      console.error('二维码下载失败:', err);
+      const matrix = createQRCodeMatrix(barcode);
       setQrCodeMap((prev) => ({
         ...prev,
-        [barcode]: { path: '', status: 'error' },
+        [barcode]: { status: 'success', matrix },
+      }));
+    } catch (err) {
+      console.error('二维码生成失败:', err);
+      setQrCodeMap((prev) => ({
+        ...prev,
+        [barcode]: { status: 'error', matrix: null },
       }));
     }
   };
 
-  // 重试下载二维码
   const handleRetryQRCode = async (e: { stopPropagation: () => void }, barcode: string) => {
     e.stopPropagation();
-    await downloadQRCode(barcode);
+    await generateQRCode(barcode);
   };
 
   // 获取二维码就绪数量统计
@@ -254,8 +244,8 @@ export default function ProductLabelPrintPage() {
 
     // 绘制二维码图片
     const qrState = qrCodeMap[label.barcode];
-    if (qrState?.status === 'success' && qrState.path) {
-      ctx.drawImage(qrState.path, qrImageX, qrImageY, qrImageSize, qrImageSize);
+    if (qrState?.status === 'success' && qrState.matrix) {
+      drawQRCodeMatrix(ctx, qrState.matrix, qrImageX, qrImageY, qrImageSize);
     } else {
       ctx.setFillStyle('#eeeeee');
       ctx.fillRect(qrImageX, qrImageY, qrImageSize, qrImageSize);
