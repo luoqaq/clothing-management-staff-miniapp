@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro';
-import { clearCart, clearToken, clearUser, getToken, getUser } from './storage';
+import { clearToken, clearUser, getToken, getUser } from './storage';
 import { User } from '../types';
 
 export function normalizeRole(role?: User['role'] | null) {
@@ -30,5 +30,4 @@ export function requireAuth() {
 export function logoutLocally() {
   clearToken();
   clearUser();
-  clearCart();
 }

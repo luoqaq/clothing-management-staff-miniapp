@@ -1,15 +1,26 @@
 import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Image, Input, Text, View } from '@tarojs/components';
-import { getProducts } from '../../services/products';
-import { Product, User } from '../../types';
+import { getProductByCode, getProducts } from '../../services/products';
+import { getDashboardSummary } from '../../services/dashboard';
+import { DashboardSummary, Product, User } from '../../types';
 import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
 import { formatCurrency, formatProductStatus } from '../../utils/format';
 
 export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
+  const [productTotal, setProductTotal] = useState(0);
   const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
+  const [summary, setSummary] = useState<DashboardSummary>({
+    orderCount: 0,
+    salesAmount: 0,
+    cancelledCount: 0,
+    pendingOrderCount: 0,
+    lowStockCount: 0,
+    totalProductCount: 0,
+    latestOrders: [],
+  });
 
   const load = async () => {
     if (!requireAuth()) {
@@ -17,12 +28,17 @@ export default function ProductsPage() {
     }
 
     try {
-      const result = await getProducts({
-        search,
-        page: 1,
-        pageSize: 20,
-      });
-      setProducts(result.items);
+      const [productResult, summaryResult] = await Promise.all([
+        getProducts({
+          search,
+          page: 1,
+          pageSize: 20,
+        }),
+        getDashboardSummary(),
+      ]);
+      setProducts(productResult.items);
+      setProductTotal(productResult.total);
+      setSummary(summaryResult);
       setUser(getCurrentUser() || undefined);
     } catch (error: any) {
       Taro.showToast({ title: error.message || '加载失败', icon: 'none' });
@@ -40,12 +56,16 @@ export default function ProductsPage() {
 
     try {
       const result = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] });
-      const code = encodeURIComponent(result.result || '');
+      const code = result.result || '';
       if (!code) {
         Taro.showToast({ title: '未识别到标签码', icon: 'none' });
         return;
       }
-      Taro.navigateTo({ url: `/pages/scan-result/index?code=${code}` });
+
+      const scannedProduct = await getProductByCode(code);
+      Taro.navigateTo({
+        url: `/pages/product-detail/index?id=${scannedProduct.productId}&skuId=${scannedProduct.skuId}`,
+      });
     } catch (error: any) {
       if (error?.errMsg?.includes('cancel')) {
         return;
@@ -60,6 +80,12 @@ export default function ProductsPage() {
         <View className='page__eyebrow'>Product Floor</View>
         <View className='page__title'>商品管理</View>
         <View className='page__subtitle'>按款号、库存和价格快速筛选，像在看门店陈列清单。</View>
+      </View>
+
+      <View style={{ padding: '0 22px 12px' }}>
+        <Text style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+          商品总数 <Text style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{productTotal}</Text>
+        </Text>
       </View>
 
       <View className='toolbar'>
@@ -79,9 +105,6 @@ export default function ProductsPage() {
               新增商品
             </Button>
           ) : null}
-          <Button className='button button--ghost button--tiny' onClick={() => Taro.navigateTo({ url: '/pages/cart/index' })}>
-            购物车
-          </Button>
         </View>
       </View>
 

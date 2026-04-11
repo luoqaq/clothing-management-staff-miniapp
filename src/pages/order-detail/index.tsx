@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Taro, { useDidShow, useLoad } from '@tarojs/taro';
-import { Button, Input, Text, Textarea, View } from '@tarojs/components';
+import { Button, Image, Input, Text, Textarea, View } from '@tarojs/components';
 import { cancelOrder, getOrder, updateOrderStatus } from '../../services/orders';
 import { Order } from '../../types';
 import { requireAuth } from '../../utils/auth';
@@ -78,12 +78,27 @@ export default function OrderDetailPage() {
         </View>
         <View className='list'>
           {order.items.map((item) => (
-            <View key={item.id} className='list-item list-item--compact'>
+            <View key={item.id} className='list-item list-item--compact' onClick={() => Taro.navigateTo({ url: `/pages/product-detail/index?id=${item.productId}` })}>
               <View className='row row--start'>
-                <View>
+                {item.image ? (
+                  <Image src={item.image} mode='aspectFill' style={{ width: '96px', height: '96px', borderRadius: '8px', backgroundColor: '#f5f5f5', flexShrink: 0 }} />
+                ) : (
+                  <View style={{ width: '96px', height: '96px', borderRadius: '8px', backgroundColor: '#f5f5f5', flexShrink: 0 }} />
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <View className='list-item__title'>{item.productName}</View>
                   <View className='list-item__subtitle'>
                     {item.color} / {item.size} × {item.quantity}
+                  </View>
+                  <View className='list-item__subtitle' style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {item.soldPrice !== undefined && item.soldPrice !== null && item.soldPrice !== item.price ? (
+                      <>
+                        <Text style={{ color: '#999', textDecoration: 'line-through' }}>原价 {formatCurrency(item.price)}</Text>
+                        <Text>售出 {formatCurrency(item.soldPrice)}</Text>
+                      </>
+                    ) : (
+                      <Text style={{ color: '#333' }}>{formatCurrency(item.price)}</Text>
+                    )}
                   </View>
                 </View>
                 <Text className='list-item__price'>{formatCurrency((item.soldPrice || item.price) * item.quantity)}</Text>

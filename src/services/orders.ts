@@ -9,10 +9,23 @@ function toQuery(params: Record<string, string | number | undefined>) {
   return value ? `?${value}` : '';
 }
 
+function sortOrders(items: Order[]) {
+  return [...items].sort((a, b) => {
+    const timeDiff = b.createdAt.localeCompare(a.createdAt);
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+    return b.id - a.id;
+  });
+}
+
 export function getOrders(params: Record<string, string | number | undefined> = {}) {
   return request<PaginatedData<Order>>({
     url: `/orders${toQuery(params)}`,
-  });
+  }).then((result) => ({
+    ...result,
+    items: sortOrders(result.items || []),
+  }));
 }
 
 export function getOrder(id: number) {

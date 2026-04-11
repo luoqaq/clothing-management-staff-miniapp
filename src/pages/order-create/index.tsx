@@ -3,16 +3,16 @@ import Taro, { useDidShow, useLoad } from '@tarojs/taro';
 import { Button, Image, Input, Picker, ScrollView, Text, Textarea, View } from '@tarojs/components';
 import { getAgeBuckets } from '../../services/customers';
 import { createOrder } from '../../services/orders';
-import { getProducts } from '../../services/products';
+import { getProductByCode, getProducts } from '../../services/products';
 import { CustomerAgeBucket, Product, ProductSpecification } from '../../types';
 import { requireAuth } from '../../utils/auth';
 import { formatCurrency } from '../../utils/format';
-import { clearCart, clearDirectOrderItem, getCart, getDirectOrderItem } from '../../utils/storage';
-import { clearScannedItems, getScannedItems } from '../../utils/scan';
+import { clearDirectOrderItem, getDirectOrderItem, setDirectOrderItem } from '../../utils/storage';
+import { clearScannedItems, getScannedItems, setScannedItems } from '../../utils/scan';
 
 const paymentMethods = ['现金', '微信', '支付宝'];
 
-type OrderMode = 'cart' | 'direct' | 'scan' | 'manual';
+type OrderMode = 'direct' | 'scan' | 'manual';
 
 interface OrderItem {
   skuId: number;
@@ -25,14 +25,16 @@ interface OrderItem {
   color?: string | null;
   size?: string | null;
   quantity: number;
+  stock?: number;
+  quantityDraft?: string;
 }
 
 export default function OrderCreatePage() {
   const [items, setItems] = useState<OrderItem[]>([]);
   const [ageBuckets, setAgeBuckets] = useState<CustomerAgeBucket[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [mode, setMode] = useState<OrderMode>('cart');
-  const modeRef = useRef<OrderMode>('cart');
+  const [mode, setMode] = useState<OrderMode>('manual');
+  const modeRef = useRef<OrderMode>('manual');
   const [form, setForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -47,8 +49,87 @@ export default function OrderCreatePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedSpec, setSelectedSpec] = useState<ProductSpecification | null>(null);
-  const [selectQuantity, setSelectQuantity] = useState(1);
+  const [selectQuantity, setSelectQuantity] = useState<number | string>(1);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [scanning, setScanning] = useState(false);
+
+  const syncItemsToSource = (nextItems: OrderItem[]) => {
+    switch (modeRef.current) {
+      case 'direct':
+        if (nextItems[0]) {
+          setDirectOrderItem({
+            skuId: nextItems[0].skuId,
+            productId: nextItems[0].productId,
+            productName: nextItems[0].productName,
+            skuCode: nextItems[0].skuCode,
+            image: nextItems[0].image ?? null,
+            price: nextItems[0].price,
+            soldPrice: nextItems[0].soldPrice,
+            color: nextItems[0].color ?? null,
+            size: nextItems[0].size ?? null,
+            quantity: nextItems[0].quantity,
+            stock: nextItems[0].stock ?? nextItems[0].quantity,
+          });
+        }
+        break;
+      case 'scan':
+        setScannedItems(nextItems.map((item) => {
+          const { quantityDraft: _, ...rest } = item;
+          return {
+            skuId: rest.skuId,
+            productId: rest.productId,
+            productName: rest.productName,
+            skuCode: rest.skuCode,
+            image: rest.image ?? null,
+            salePrice: rest.price,
+            color: rest.color ?? null,
+            size: rest.size ?? null,
+            quantity: rest.quantity,
+            barcode: '',
+            productCode: '',
+            stock: rest.stock ?? rest.quantity,
+            reservedStock: 0,
+            availableStock: rest.stock ?? rest.quantity,
+            status: 'active',
+            productStatus: 'active',
+          };
+        }));
+        break;
+      default:
+        break;
+    }
+  };
+
+  const setItemsWithSourceSync = (updater: OrderItem[] | ((current: OrderItem[]) => OrderItem[])) => {
+    setItems((current) => {
+      const nextItems = typeof updater === 'function' ? updater(current) : updater;
+      syncItemsToSource(nextItems);
+      return nextItems;
+    });
+  };
+
+  const upsertOrderItem = (newItem: OrderItem, existingIncrement = 1) => {
+    setItemsWithSourceSync((current) => {
+      const existing = current.find((item) => item.skuId === newItem.skuId);
+      if (existing) {
+        const nextQuantity = Math.min(
+          existing.quantity + existingIncrement,
+          newItem.stock ?? existing.stock ?? existing.quantity + newItem.quantity
+        );
+        return current.map((item) =>
+          item.skuId === newItem.skuId
+            ? {
+                ...item,
+                ...newItem,
+                quantity: nextQuantity,
+                soldPrice: item.soldPrice ?? newItem.soldPrice,
+              }
+            : item
+        );
+      }
+      return [...current, newItem];
+    });
+  };
 
   const searchProducts = async () => {
     setLoadingProducts(true);
@@ -90,19 +171,10 @@ export default function OrderCreatePage() {
       color: selectedSpec.color,
       size: selectedSpec.size,
       quantity: selectQuantity,
+      stock: selectedSpec.availableStock,
     };
 
-    setItems((current) => {
-      const existing = current.find((item) => item.skuId === newItem.skuId);
-      if (existing) {
-        return current.map((item) =>
-          item.skuId === newItem.skuId
-            ? { ...item, quantity: item.quantity + newItem.quantity }
-            : item
-        );
-      }
-      return [...current, newItem];
-    });
+    upsertOrderItem(newItem);
 
     setShowProductSelector(false);
     setSelectedProduct(null);
@@ -134,13 +206,88 @@ export default function OrderCreatePage() {
       color: item.color ?? null,
       size: item.size ?? null,
       quantity: item.quantity,
+      stock: item.stock ?? item.availableStock,
     }));
   };
 
   const updateSoldPrice = (skuId: number, soldPrice: number) => {
-    setItems((current) =>
+    setItemsWithSourceSync((current) =>
       current.map((item) => (item.skuId === skuId ? { ...item, soldPrice } : item))
     );
+  };
+
+  const updateItemQuantity = (skuId: number, rawValue: string) => {
+    const value = rawValue.replace(/[^\d]/g, '');
+    const num = value === '' ? 0 : parseInt(value, 10);
+    setItemsWithSourceSync((current) =>
+      current.map((item) => {
+        if (item.skuId !== skuId) {
+          return item;
+        }
+        const limit = item.stock ?? Infinity;
+        return {
+          ...item,
+          quantity: num === 0 ? item.quantity : Math.max(1, Math.min(num, limit)),
+          quantityDraft: value,
+        };
+      })
+    );
+  };
+
+  const finalizeItemQuantity = (skuId: number) => {
+    setItemsWithSourceSync((current) =>
+      current.map((item) => {
+        if (item.skuId !== skuId || item.quantityDraft === undefined) {
+          return item;
+        }
+        const limit = item.stock ?? Infinity;
+        const num = parseInt(item.quantityDraft || '1', 10);
+        return {
+          ...item,
+          quantity: Math.max(1, Math.min(num, limit)),
+          quantityDraft: undefined,
+        };
+      })
+    );
+  };
+
+  const handleScanAddProduct = async () => {
+    if (scanning) {
+      return;
+    }
+
+    try {
+      setScanning(true);
+      const result = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] });
+      const code = result.result || '';
+      if (!code) {
+        Taro.showToast({ title: '未识别到标签码', icon: 'none' });
+        return;
+      }
+
+      const scannedProduct = await getProductByCode(code);
+      upsertOrderItem({
+        skuId: scannedProduct.skuId,
+        productId: scannedProduct.productId,
+        productName: scannedProduct.productName,
+        skuCode: scannedProduct.skuCode,
+        image: scannedProduct.image ?? null,
+        price: scannedProduct.salePrice,
+        soldPrice: scannedProduct.salePrice,
+        color: scannedProduct.color,
+        size: scannedProduct.size,
+        quantity: 1,
+        stock: scannedProduct.availableStock,
+      });
+      Taro.showToast({ title: '已扫码添加商品', icon: 'success' });
+    } catch (error: any) {
+      if (error?.errMsg?.includes('cancel')) {
+        return;
+      }
+      Taro.showToast({ title: error.message || '扫码失败', icon: 'none' });
+    } finally {
+      setScanning(false);
+    }
   };
 
   const loadItems = (currentMode: OrderMode) => {
@@ -154,9 +301,8 @@ export default function OrderCreatePage() {
       case 'scan':
         sourceItems = getScannedItems();
         break;
-      case 'cart':
       default:
-        sourceItems = getCart();
+        sourceItems = [];
         break;
     }
     
@@ -171,9 +317,8 @@ export default function OrderCreatePage() {
         return '扫码录单';
       case 'manual':
         return '手动录单';
-      case 'cart':
       default:
-        return '购物车';
+        return '手动录单';
     }
   };
 
@@ -185,14 +330,13 @@ export default function OrderCreatePage() {
         return '已带入扫码列表中的商品，确认客户信息后可统一提交。';
       case 'manual':
         return '手动选择商品添加到订单，确认客户信息后提交。';
-      case 'cart':
       default:
-        return '先确认客户与收款信息，再统一提交购物车中的商品。';
+        return '手动选择商品添加到订单，确认客户信息后提交。';
     }
   };
 
   useLoad((params) => {
-    const currentMode = (params.mode as OrderMode) || 'cart';
+    const currentMode = (params.mode as OrderMode) || 'manual';
     modeRef.current = currentMode;
     setMode(currentMode);
     if (requireAuth()) {
@@ -227,15 +371,13 @@ export default function OrderCreatePage() {
       case 'scan':
         clearScannedItems();
         break;
-      case 'cart':
       default:
-        clearCart();
         break;
     }
   };
 
   const removeItem = (skuId: number) => {
-    setItems((current) => current.filter((item) => item.skuId !== skuId));
+    setItemsWithSourceSync((current) => current.filter((item) => item.skuId !== skuId));
   };
 
   const submit = async () => {
@@ -277,14 +419,148 @@ export default function OrderCreatePage() {
     }
   };
 
+  const navigateToProductDetail = (productId: number, skuId: number) => {
+    Taro.navigateTo({ url: `/pages/product-detail/index?id=${productId}&skuId=${skuId}` });
+  };
+
   return (
-    <View className='page page--form'>
+    <View className='page page--form page--with-fixed-footer'>
       <View className='page__header'>
         <View className='page__eyebrow'>Create Order · {getModeLabel()}</View>
         <View className='page__title'>门店录单</View>
         <View className='page__subtitle'>{getSubtitle()}</View>
       </View>
       
+      <View className='panel'>
+        <View className='card__header'>
+          <View>
+            <View className='card__title'>商品清单</View>
+            <View className='section-desc'>共 {items.length} 款商品，{items.reduce((sum, item) => sum + item.quantity, 0)} 件。</View>
+          </View>
+          <View className='btn-row'>
+            <Button className='button button--ghost button--tiny' loading={scanning} onClick={() => void handleScanAddProduct()}>
+              扫码添加
+            </Button>
+            <Button className='button button--ghost button--tiny' onClick={() => setShowProductSelector(true)}>
+              + 添加商品
+            </Button>
+          </View>
+        </View>
+        {items.length === 0 ? (
+          <View className='empty-state'>
+            <View className='empty-state__symbol'>单</View>
+            <Text>暂无商品</Text>
+            <View className='caption section-gap'>可通过上方“扫码添加”或“+ 添加商品”补充清单</View>
+          </View>
+        ) : (
+          <View className='list'>
+            {items.map((item) => (
+              <View key={item.skuId} className='list-item list-item--compact'>
+                <View className='order-item-card'>
+                  <View className='order-item-card__main'>
+                    <View className='order-item-card__media'>
+                      {item.image ? (
+                        <Image
+                          className='thumbnail thumbnail--small'
+                          src={item.image}
+                          mode='aspectFill'
+                          onClick={() => navigateToProductDetail(item.productId, item.skuId)}
+                        />
+                      ) : (
+                        <View
+                          className='thumbnail thumbnail--small thumbnail--placeholder'
+                          onClick={() => navigateToProductDetail(item.productId, item.skuId)}
+                        />
+                      )}
+                    </View>
+                    <View className='order-item-card__content'>
+                      <View
+                        className='list-item__title order-item-card__title'
+                        onClick={() => navigateToProductDetail(item.productId, item.skuId)}
+                      >
+                        {item.productName}
+                      </View>
+                      <View className='list-item__subtitle'>
+                        {item.color} / {item.size}
+                      </View>
+                      <View className='list-item__subtitle' style={{ marginTop: '4rpx' }}>
+                        <Text style={{ color: '#999' }}>原价 ¥{item.price}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View className='order-item-card__side'>
+                    <View className='row' style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+                      <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>售出价</Text>
+                      <Input
+                        type='digit'
+                        style={{ width: '120rpx', textAlign: 'right', borderBottom: '1rpx solid #ddd' }}
+                        value={String(item.soldPrice)}
+                        onClick={(e) => e.stopPropagation()}
+                        onInput={(e) => {
+                          const value = parseFloat(e.detail.value);
+                          updateSoldPrice(item.skuId, isNaN(value) ? 0 : value);
+                        }}
+                      />
+                    </View>
+                    <View className='row' style={{ alignItems: 'center', justifyContent: 'flex-end', marginTop: '8rpx' }}>
+                      <Text className='list-item__price' style={{ marginRight: '16rpx' }}>
+                        {formatCurrency(item.soldPrice * item.quantity)}
+                      </Text>
+                      <Text
+                        style={{ fontSize: '24rpx', color: '#ff4d4f' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItem(item.skuId);
+                        }}
+                      >
+                        删除
+                      </Text>
+                    </View>
+                    <View className='quantity-control order-item-card__quantity'>
+                      <Button
+                        className='button button--tiny button--ghost'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateItemQuantity(item.skuId, item.quantity - 1);
+                        }}
+                        disabled={item.quantity <= 1}
+                      >
+                        -
+                      </Button>
+                      <Input
+                        className='input input--qty'
+                        type='number'
+                        value={item.quantityDraft !== undefined ? item.quantityDraft : String(item.quantity)}
+                        onClick={(e) => e.stopPropagation()}
+                        onInput={(e) => updateItemQuantity(item.skuId, e.detail.value)}
+                        onBlur={() => finalizeItemQuantity(item.skuId)}
+                      />
+                      <Button
+                        className='button button--tiny button--ghost'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateItemQuantity(item.skuId, item.quantity + 1);
+                        }}
+                        disabled={item.stock !== undefined && item.quantity >= item.stock}
+                      >
+                        +
+                      </Button>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+        <View className='divider' />
+        <View className='row'>
+          <Text style={{ fontSize: '28rpx', color: 'var(--text-secondary)' }}>合计</Text>
+          <Text style={{ fontSize: '44rpx', fontWeight: '700', color: 'var(--text-primary)' }}>
+            {formatCurrency(totalAmount)}
+          </Text>
+        </View>
+      </View>
+
       <View className='panel'>
         <View className='card__header'>
           <View>
@@ -340,75 +616,11 @@ export default function OrderCreatePage() {
         </View>
       </View>
 
-      <View className='panel'>
-        <View className='card__header'>
-          <View>
-            <View className='card__title'>商品清单</View>
-            <View className='section-desc'>共 {items.length} 款商品，{items.reduce((sum, item) => sum + item.quantity, 0)} 件。</View>
-          </View>
-          <Button className='button button--ghost button--tiny' onClick={() => setShowProductSelector(true)}>
-            + 添加商品
-          </Button>
-        </View>
-        {items.length === 0 ? (
-          <View className='empty-state'>
-            <View className='empty-state__symbol'>单</View>
-            <Text>暂无商品</Text>
-          </View>
-        ) : (
-          <View className='list'>
-            {items.map((item) => (
-              <View key={item.skuId} className='list-item list-item--compact'>
-                <View className='row row--start'>
-                  <View>
-                    <View className='list-item__title'>{item.productName}</View>
-                    <View className='list-item__subtitle'>
-                      {item.color} / {item.size} × {item.quantity}
-                    </View>
-                  </View>
-                  <View className='row' style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <View className='row' style={{ alignItems: 'center', marginBottom: '8rpx' }}>
-                      <Text style={{ fontSize: '24rpx', color: '#999', marginRight: '12rpx' }}>原价 ¥{item.price}</Text>
-                    </View>
-                    <View className='row' style={{ alignItems: 'center' }}>
-                      <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>售出价</Text>
-                      <Input
-                        type='digit'
-                        style={{ width: '120rpx', textAlign: 'right', borderBottom: '1rpx solid #ddd' }}
-                        value={String(item.soldPrice)}
-                        onInput={(e) => {
-                          const value = parseFloat(e.detail.value);
-                          updateSoldPrice(item.skuId, isNaN(value) ? 0 : value);
-                        }}
-                      />
-                    </View>
-                    <View className='row' style={{ alignItems: 'center', marginTop: '8rpx' }}>
-                      <Text className='list-item__price' style={{ marginRight: '16rpx' }}>
-                        {formatCurrency(item.soldPrice * item.quantity)}
-                      </Text>
-                      <Text
-                        style={{ fontSize: '24rpx', color: '#ff4d4f' }}
-                        onClick={() => removeItem(item.skuId)}
-                      >
-                        删除
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-        <View className='divider' />
-        <View className='row'>
-          <Text>合计</Text>
-          <Text>{formatCurrency(totalAmount)}</Text>
-        </View>
+      <View className='fixed-action-bar'>
+        <Button className='button button--primary button--block' loading={submitting} onClick={submit}>
+          提交订单
+        </Button>
       </View>
-
-      <Button className='button button--primary button--block' loading={submitting} onClick={submit}>
-        提交订单
-      </Button>
 
       {showProductSelector && (
         <View className='modal-overlay' onClick={closeSelector}>
@@ -535,7 +747,14 @@ export default function OrderCreatePage() {
                     className='input'
                     type='number'
                     value={String(selectQuantity)}
-                    onInput={(e) => setSelectQuantity(Math.max(1, Number(e.detail.value || 1)))}
+                    onInput={(e) => {
+                      const val = e.detail.value.replace(/[^\d]/g, '');
+                      setSelectQuantity(val === '' ? '' : parseInt(val, 10));
+                    }}
+                    onBlur={() => {
+                      const num = typeof selectQuantity === 'string' ? parseInt(selectQuantity || '1', 10) : selectQuantity;
+                      setSelectQuantity(Math.max(1, num));
+                    }}
                   />
                 </View>
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import Taro, { useDidShow, useLoad } from '@tarojs/taro';
 import { Button, Image, Input, Text, View } from '@tarojs/components';
 import { getProduct, updateProductImages } from '../../services/products';
-import { addToCart } from '../../utils/cart';
+
 import { setDirectOrderItem } from '../../utils/storage';
 import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
 import { formatCurrency, formatProductStatus } from '../../utils/format';
@@ -13,7 +13,7 @@ export default function ProductDetailPage() {
   const [id, setId] = useState(0);
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedSkuId, setSelectedSkuId] = useState(0);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | string>(1);
   const [uploading, setUploading] = useState(false);
   const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
 
@@ -22,7 +22,7 @@ export default function ProductDetailPage() {
     [product, selectedSkuId]
   );
 
-  const load = async (nextId = id) => {
+  const load = async (nextId = id, preferredSkuId = selectedSkuId) => {
     if (!requireAuth() || !nextId) {
       return;
     }
@@ -30,7 +30,8 @@ export default function ProductDetailPage() {
     try {
       const result = await getProduct(nextId);
       setProduct(result);
-      setSelectedSkuId(result.specifications[0]?.id || 0);
+      const matchedSku = result.specifications.find((item) => item.id === preferredSkuId);
+      setSelectedSkuId(matchedSku?.id || result.specifications[0]?.id || 0);
       setUser(getCurrentUser() || undefined);
     } catch (error: any) {
       Taro.showToast({ title: error.message || '加载失败', icon: 'none' });
@@ -39,33 +40,15 @@ export default function ProductDetailPage() {
 
   useLoad((params) => {
     const nextId = Number(params.id || 0);
+    const nextSkuId = Number(params.skuId || 0);
     setId(nextId);
-    void load(nextId);
+    setSelectedSkuId(nextSkuId);
+    void load(nextId, nextSkuId);
   });
 
   useDidShow(() => {
     void load();
   });
-
-  const handleAddToCart = () => {
-    if (!product || !selectedSku) {
-      return;
-    }
-
-    addToCart({
-      productId: product.id,
-      skuId: selectedSku.id,
-      productName: product.name,
-      skuCode: selectedSku.skuCode,
-      image: product.mainImages[0] || null,
-      price: selectedSku.salePrice,
-      soldPrice: selectedSku.salePrice,
-      color: selectedSku.color,
-      size: selectedSku.size,
-      quantity,
-      stock: selectedSku.availableStock,
-    });
-  };
 
   const handleDirectOrder = () => {
     if (!product || !selectedSku) {
@@ -164,7 +147,7 @@ export default function ProductDetailPage() {
         <View className='card__header'>
           <View>
             <View className='card__title'>规格与库存</View>
-            <View className='section-desc'>选中后即可直接加入购物车。</View>
+            <View className='section-desc'>选中后即可直接录单。</View>
           </View>
           {hasManagerAccess(user) ? (
             <Button
@@ -212,7 +195,7 @@ export default function ProductDetailPage() {
         <View className='card__header'>
           <View>
             <View className='card__title'>门店录单</View>
-            <View className='section-desc'>选好规格和数量后，可加入购物车或直接录单。</View>
+            <View className='section-desc'>选好规格和数量后，可直接录单。</View>
           </View>
         </View>
         <View className='field'>
@@ -221,20 +204,21 @@ export default function ProductDetailPage() {
             className='input'
             type='number'
             value={String(quantity)}
-            onInput={(e) => setQuantity(Math.max(1, Number(e.detail.value || 1)))}
+            onInput={(e) => {
+              const val = e.detail.value.replace(/[^\d]/g, '');
+              setQuantity(val === '' ? '' : parseInt(val, 10));
+            }}
+            onBlur={() => {
+              const num = typeof quantity === 'string' ? parseInt(quantity || '1', 10) : quantity;
+              setQuantity(Math.max(1, num));
+            }}
           />
         </View>
         <View className='btn-row'>
-          <Button className='button button--primary' onClick={handleAddToCart}>
-            加入购物车
-          </Button>
-          <Button className='button button--secondary' onClick={handleDirectOrder}>
+          <Button className='button button--primary button--block' onClick={handleDirectOrder}>
             直接录单
           </Button>
         </View>
-        <Button className='button button--ghost button--block section-gap' onClick={() => Taro.navigateTo({ url: '/pages/cart/index' })}>
-          查看购物车
-        </Button>
       </View>
 
       <View className='panel'>

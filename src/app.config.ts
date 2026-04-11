@@ -7,7 +7,6 @@ export default defineAppConfig({
     'pages/product-create/index',
     'pages/product-label-print/index',
     'pages/scan-result/index',
-    'pages/cart/index',
     'pages/order-create/index',
     'pages/orders/index',
     'pages/order-detail/index',
@@ -20,8 +19,8 @@ export default defineAppConfig({
     backgroundColor: '#efe7de',
   },
   tabBar: {
-    color: '#7b6b5d',
-    selectedColor: '#8d6848',
+    color: '#a89b8f',
+    selectedColor: '#a65c2e',
     backgroundColor: '#fbf6f0',
     borderStyle: 'black',
     list: [

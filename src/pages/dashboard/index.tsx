@@ -1,34 +1,101 @@
 import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { Text, View } from '@tarojs/components';
+import { Image, Text, View } from '@tarojs/components';
 import { getDashboardSummary } from '../../services/dashboard';
+import { getProductByCode } from '../../services/products';
 import { DashboardSummary, User } from '../../types';
 import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
-import { formatCurrency, formatOrderStatus } from '../../utils/format';
+import { formatCurrency, formatDateTime, formatOrderStatus } from '../../utils/format';
+import { setScannedItems } from '../../utils/scan';
+
+type TimeTab = 'today' | 'week' | 'month' | 'all';
+
+const tabs: Array<{ key: TimeTab; label: string }> = [
+  { key: 'today', label: '今日' },
+  { key: 'week', label: '本周' },
+  { key: 'month', label: '本月' },
+  { key: 'all', label: '累计' },
+];
+
+const tabLabelMap: Record<TimeTab, string> = {
+  today: '今日',
+  week: '本周',
+  month: '本月',
+  all: '累计',
+};
 
 const emptySummary: DashboardSummary = {
-  todayOrderCount: 0,
+  orderCount: 0,
+  salesAmount: 0,
+  cancelledCount: 0,
   pendingOrderCount: 0,
   lowStockCount: 0,
   totalProductCount: 0,
   latestOrders: [],
 };
 
-export default function DashboardPage() {
-  const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
-  const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
-  const load = async () => {
+function getDateRangeByTab(tab: TimeTab): { startDate?: string; endDate?: string } {
+  const now = new Date();
+  const todayStr = formatDate(now);
+  switch (tab) {
+    case 'today':
+      return {
+        startDate: todayStr,
+        endDate: todayStr,
+      };
+    case 'week': {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(now.getFullYear(), now.getMonth(), diff);
+      return {
+        startDate: formatDate(monday),
+        endDate: todayStr,
+      };
+    }
+    case 'month':
+      return {
+        startDate: formatDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+        endDate: todayStr,
+      };
+    case 'all':
+      return {
+        startDate: '2000-01-01',
+        endDate: todayStr,
+      };
+    default:
+      return {};
+  }
+}
+
+export default function DashboardPage() {
+  const [activeTab, setActiveTab] = useState<TimeTab>('today');
+  const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
+  const [scanLoading, setScanLoading] = useState(false);
+
+  const load = async (tab = activeTab) => {
     if (!requireAuth()) {
       return;
     }
 
+    setLoading(true);
     try {
-      const result = await getDashboardSummary();
+      const params = getDateRangeByTab(tab);
+      const result = await getDashboardSummary(params);
       setSummary(result);
       setUser(getCurrentUser() || undefined);
     } catch (error: any) {
       Taro.showToast({ title: error.message || '加载失败', icon: 'none' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,38 +103,108 @@ export default function DashboardPage() {
     void load();
   });
 
+  const handleTabChange = (tab: TimeTab) => {
+    setActiveTab(tab);
+    void load(tab);
+  };
+
+  const handleScanOrder = async () => {
+    if (!requireAuth() || scanLoading) {
+      return;
+    }
+
+    try {
+      setScanLoading(true);
+      const result = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] });
+      const code = result.result || '';
+      if (!code) {
+        Taro.showToast({ title: '未识别到标签码', icon: 'none' });
+        return;
+      }
+
+      const scannedProduct = await getProductByCode(code);
+      setScannedItems([
+        {
+          ...scannedProduct,
+          quantity: 1,
+        },
+      ]);
+      Taro.navigateTo({ url: '/pages/order-create/index?mode=scan' });
+    } catch (error: any) {
+      if (error?.errMsg?.includes('cancel')) {
+        return;
+      }
+      Taro.showToast({ title: error.message || '扫码失败', icon: 'none' });
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const currentLabel = tabLabelMap[activeTab];
+
+  function getDaysMultiplier(tab: TimeTab): number {
+    const now = new Date();
+    switch (tab) {
+      case 'today':
+        return 1;
+      case 'week': {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(now.getFullYear(), now.getMonth(), diff);
+        return Math.max(1, Math.floor((now.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      }
+      case 'month':
+        return Math.max(1, now.getDate());
+      case 'all':
+        return 365;
+      default:
+        return 1;
+    }
+  }
+
+  function getSalesStars(amount: number, tab: TimeTab): string {
+    const multiplier = getDaysMultiplier(tab);
+    if (amount === 0) return '';
+    if (amount > 2000 * multiplier) return '⭐⭐⭐⭐';
+    if (amount >= 1000 * multiplier) return '⭐⭐⭐';
+    if (amount >= 500 * multiplier) return '⭐⭐';
+    return '⭐';
+  }
+
   return (
     <View className='page page--dashboard'>
       <View className='page__hero'>
         <View className='page__eyebrow'>Daily Brief</View>
         <View className='page__title page__title--light'>今日工作台</View>
         <View className='page__subtitle page__subtitle--light'>先看当日节奏，再进入商品、订单和补货动作。</View>
-        <View className='page__meta'>
-          <View className='page__meta-item'>待处理订单 {summary.pendingOrderCount}</View>
-          <View className='page__meta-item'>低库存 SKU {summary.lowStockCount}</View>
-        </View>
       </View>
 
-      <View className='metric-grid'>
-        <View className='metric-card metric-card--accent'>
-          <View className='metric-card__label'>今日订单</View>
-          <View className='metric-card__value'>{summary.todayOrderCount}</View>
-          <View className='metric-card__note'>门店当日录入节奏</View>
+      <View className='time-tabs'>
+        {tabs.map((tab) => (
+          <View
+            key={tab.key}
+            className={`time-tab ${activeTab === tab.key ? 'time-tab--active' : ''}`}
+            onClick={() => handleTabChange(tab.key)}
+          >
+            <Text className='time-tab__text'>{tab.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View className='summary-cards'>
+        <View className='summary-card'>
+          <View className='summary-card__label'>{currentLabel}订单</View>
+          <View className='summary-card__value'>{summary.orderCount}</View>
+          {summary.cancelledCount > 0 && (
+            <View className='summary-card__subnote'>取消 {summary.cancelledCount} 单</View>
+          )}
         </View>
-        <View className='metric-card'>
-          <View className='metric-card__label'>待处理订单</View>
-          <View className='metric-card__value'>{summary.pendingOrderCount}</View>
-          <View className='metric-card__note'>优先确认与发货</View>
-        </View>
-        <View className='metric-card'>
-          <View className='metric-card__label'>低库存 SKU</View>
-          <View className='metric-card__value'>{summary.lowStockCount}</View>
-          <View className='metric-card__note'>关注断码风险</View>
-        </View>
-        <View className='metric-card'>
-          <View className='metric-card__label'>商品总数</View>
-          <View className='metric-card__value'>{summary.totalProductCount}</View>
-          <View className='metric-card__note'>在售与草稿统一管理</View>
+        <View className='summary-card summary-card--accent'>
+          <View className='summary-card__label'>{currentLabel}销售</View>
+          <View className='summary-card__value'>{formatCurrency(summary.salesAmount)}</View>
+          {summary.salesAmount > 0 && (
+            <View className='summary-card__stars'>{getSalesStars(summary.salesAmount, activeTab)}</View>
+          )}
         </View>
       </View>
 
@@ -79,11 +216,6 @@ export default function DashboardPage() {
           </View>
         </View>
         <View className='quick-grid'>
-          <View className='quick-link' onClick={() => Taro.switchTab({ url: '/pages/products/index' })}>
-            <View className='quick-link__icon'>货</View>
-            <View className='quick-link__title'>查商品</View>
-            <View className='quick-link__desc'>查看库存与详情</View>
-          </View>
           {hasManagerAccess(user) ? (
             <View className='quick-link' onClick={() => Taro.navigateTo({ url: '/pages/product-create/index' })}>
               <View className='quick-link__icon'>新</View>
@@ -91,68 +223,19 @@ export default function DashboardPage() {
               <View className='quick-link__desc'>直接录入新款</View>
             </View>
           ) : null}
-          <View className='quick-link' onClick={() => Taro.navigateTo({ url: '/pages/order-create/index' })}>
+          <View className='quick-link' onClick={() => Taro.navigateTo({ url: '/pages/order-create/index?mode=manual' })}>
             <View className='quick-link__icon'>单</View>
             <View className='quick-link__title'>门店录单</View>
-            <View className='quick-link__desc'>购物车模式录单</View>
+            <View className='quick-link__desc'>手动选择商品录单</View>
           </View>
-          <View
-            className='quick-link'
-            onClick={() => Taro.navigateTo({ url: '/pages/order-create/index?mode=manual' })}
-          >
-            <View className='quick-link__icon'>选</View>
-            <View className='quick-link__title'>选款录单</View>
-            <View className='quick-link__desc'>浏览选择商品录单</View>
-          </View>
-          <View
-            className='quick-link'
-            onClick={() => Taro.navigateTo({ url: '/pages/scan-result/index' })}
-          >
+          <View className='quick-link' onClick={() => void handleScanOrder()}>
             <View className='quick-link__icon'>扫</View>
             <View className='quick-link__title'>扫码录单</View>
-            <View className='quick-link__desc'>连续扫码快速成单</View>
+            <View className='quick-link__desc'>{scanLoading ? '正在扫码识别商品' : '扫码后直接进入录单'}</View>
           </View>
         </View>
       </View>
 
-      <View className='panel'>
-        <View className='card__header'>
-          <View>
-            <View className='card__title'>最近订单</View>
-            <View className='section-desc'>最近流转中的订单会优先出现在这里。</View>
-          </View>
-        </View>
-        {summary.latestOrders.length === 0 ? (
-          <View className='empty-state'>
-            <View className='empty-state__symbol'>单</View>
-            <Text>暂无订单</Text>
-          </View>
-        ) : (
-          <View className='list'>
-            {summary.latestOrders.map((order) => (
-              <View
-                key={order.id}
-                className='list-item'
-                onClick={() => Taro.navigateTo({ url: `/pages/order-detail/index?id=${order.id}` })}
-              >
-                <View className='row row--start'>
-                  <View>
-                    <View className='list-item__title'>{order.orderNo}</View>
-                    <View className='list-item__subtitle'>
-                      {order.customerName} · {order.customerPhone}
-                    </View>
-                  </View>
-                  <Text className='pill'>{formatOrderStatus(order.status)}</Text>
-                </View>
-                <View className='list-item__meta'>
-                  <Text>{order.items.length} 件商品</Text>
-                  <Text>{formatCurrency(order.finalAmount)}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
     </View>
   );
 }

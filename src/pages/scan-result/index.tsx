@@ -9,6 +9,7 @@ import { setScannedItems, getScannedItems, clearScannedItems } from '../../utils
 
 interface ScannedItem extends ScannedSkuProduct {
   quantity: number;
+  quantityDraft?: string;
 }
 
 export default function ScanResultPage() {
@@ -96,15 +97,32 @@ export default function ScanResultPage() {
     }
   };
 
-  const handleQuantityChange = (skuId: number, quantity: number) => {
+  const handleQuantityChange = (skuId: number, rawValue: string) => {
+    const value = rawValue.replace(/[^\d]/g, '');
+    const num = value === '' ? 0 : parseInt(value, 10);
     const currentItems = getScannedItems();
     const item = currentItems.find(i => i.skuId === skuId);
     if (!item) return;
 
-    const newQuantity = Math.max(1, Math.min(quantity, item.availableStock));
+    const newQuantity = num === 0 ? item.quantity : Math.max(1, Math.min(num, item.availableStock));
     const updatedItems = currentItems.map(item =>
-      item.skuId === skuId ? { ...item, quantity: newQuantity } : item
+      item.skuId === skuId ? { ...item, quantity: newQuantity, quantityDraft: value } : item
     );
+    setScannedItems(updatedItems);
+    setItems(updatedItems);
+  };
+
+  const finalizeQuantity = (skuId: number) => {
+    const currentItems = getScannedItems();
+    const updatedItems = currentItems.map(item => {
+      if (item.skuId !== skuId || item.quantityDraft === undefined) return item;
+      const num = parseInt(item.quantityDraft || '1', 10);
+      return {
+        ...item,
+        quantity: Math.max(1, Math.min(num, item.availableStock)),
+        quantityDraft: undefined,
+      };
+    });
     setScannedItems(updatedItems);
     setItems(updatedItems);
   };
@@ -233,8 +251,9 @@ export default function ScanResultPage() {
                     <Input
                       className='input input--qty'
                       type='number'
-                      value={String(item.quantity)}
-                      onInput={(e) => handleQuantityChange(item.skuId, Number(e.detail.value || 1))}
+                      value={item.quantityDraft !== undefined ? item.quantityDraft : String(item.quantity)}
+                      onInput={(e) => handleQuantityChange(item.skuId, e.detail.value)}
+                      onBlur={() => finalizeQuantity(item.skuId)}
                     />
                     <Button 
                       className='button button--tiny button--ghost'
