@@ -231,6 +231,7 @@ export interface CreateOrderPayload {
 export interface DashboardSummary {
   orderCount: number;
   salesAmount: number;
+  grossProfit?: number;
   cancelledCount: number;
   pendingOrderCount: number;
   lowStockCount: number;

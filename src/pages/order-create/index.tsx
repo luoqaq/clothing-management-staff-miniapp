@@ -640,7 +640,7 @@ export default function OrderCreatePage() {
                     className='input'
                     value={productSearch}
                     onInput={(e) => setProductSearch(e.detail.value)}
-                    placeholder='搜索商品名称或款号'
+                    placeholder='搜索商品名称、款号或供应商'
                     onConfirm={() => searchProducts()}
                   />
                   <Button

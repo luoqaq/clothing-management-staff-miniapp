@@ -80,6 +80,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
   const [scanLoading, setScanLoading] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   const load = async (tab = activeTab) => {
     if (!requireAuth()) {
@@ -192,18 +193,27 @@ export default function DashboardPage() {
       </View>
 
       <View className='summary-cards'>
-        <View className='summary-card'>
+        <View className='summary-card' onClick={() => setShowStats((v) => !v)}>
           <View className='summary-card__label'>{currentLabel}订单</View>
-          <View className='summary-card__value'>{summary.orderCount}</View>
-          {summary.cancelledCount > 0 && (
+          <View className='summary-card__value'>{showStats ? summary.orderCount : '***'}</View>
+          {showStats && summary.cancelledCount > 0 && (
             <View className='summary-card__subnote'>取消 {summary.cancelledCount} 单</View>
           )}
+          {!showStats && (
+            <View className='summary-card__subnote'>点击展开</View>
+          )}
         </View>
-        <View className='summary-card summary-card--accent'>
+        <View className='summary-card summary-card--accent' onClick={() => setShowStats((v) => !v)}>
           <View className='summary-card__label'>{currentLabel}销售</View>
-          <View className='summary-card__value'>{formatCurrency(summary.salesAmount)}</View>
-          {summary.salesAmount > 0 && (
+          <View className='summary-card__value'>{showStats ? formatCurrency(summary.salesAmount) : '***'}</View>
+          {showStats && summary.salesAmount > 0 && (
             <View className='summary-card__stars'>{getSalesStars(summary.salesAmount, activeTab)}</View>
+          )}
+          {showStats && (
+            <View className='summary-card__subnote'>毛利 {formatCurrency(summary.grossProfit || 0)}</View>
+          )}
+          {!showStats && (
+            <View className='summary-card__subnote'>点击展开</View>
           )}
         </View>
       </View>

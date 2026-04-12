@@ -103,6 +103,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [summary, setSummary] = useState<DashboardSummary>({
     orderCount: 0,
     salesAmount: 0,
@@ -238,9 +239,14 @@ export default function OrdersPage() {
         </View>
       )}
 
-      <View style={{ padding: '0 22px 12px' }}>
+      <View
+        style={{ padding: '0 22px 12px' }}
+        onClick={() => setShowStats((v) => !v)}
+      >
         <Text style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-          共 {summary.orderCount} 单，销售额 {formatCurrency(summary.salesAmount)}
+          {showStats
+            ? `共 ${summary.orderCount} 单，销售额 ${formatCurrency(summary.salesAmount)}，毛利 ${formatCurrency(summary.grossProfit || 0)}`
+            : '订单数据已隐藏，点击展开'}
         </Text>
       </View>
 

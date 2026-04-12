@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { Button, Image, Input, Text, View } from '@tarojs/components';
-import { getProductByCode, getProducts } from '../../services/products';
+import { Button, Image, Input, Picker, Text, View } from '@tarojs/components';
+import { getProductByCode, getProductOptions, getProducts } from '../../services/products';
 import { getDashboardSummary } from '../../services/dashboard';
-import { DashboardSummary, Product, User } from '../../types';
+import { DashboardSummary, Product, Supplier, User } from '../../types';
 import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
 import { formatCurrency, formatProductStatus } from '../../utils/format';
 
 export default function ProductsPage() {
   const [search, setSearch] = useState('');
+  const [supplierId, setSupplierId] = useState<number | null>(null);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productTotal, setProductTotal] = useState(0);
   const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
@@ -22,15 +24,19 @@ export default function ProductsPage() {
     latestOrders: [],
   });
 
-  const load = async () => {
+  const doSearch = async (params?: { search?: string; supplierId?: number | null }) => {
     if (!requireAuth()) {
       return;
     }
 
+    const currentSearch = params?.search !== undefined ? params.search : search;
+    const currentSupplierId = params?.supplierId !== undefined ? params.supplierId : supplierId;
+
     try {
       const [productResult, summaryResult] = await Promise.all([
         getProducts({
-          search,
+          search: currentSearch,
+          supplierId: currentSupplierId ?? undefined,
           page: 1,
           pageSize: 20,
         }),
@@ -45,8 +51,20 @@ export default function ProductsPage() {
     }
   };
 
+  const load = () => doSearch();
+
   useDidShow(() => {
     void load();
+    if (hasManagerAccess(getCurrentUser())) {
+      void (async () => {
+        try {
+          const options = await getProductOptions();
+          setSuppliers(options.suppliers);
+        } catch (error: any) {
+          // 静默失败，不阻断主流程
+        }
+      })();
+    }
   });
 
   const handleScan = async () => {
@@ -91,10 +109,34 @@ export default function ProductsPage() {
       <View className='toolbar'>
         <View className='field'>
           <Text className='field__label'>搜索商品</Text>
-          <Input className='input' value={search} onInput={(e) => setSearch(e.detail.value)} placeholder='名称 / 款号' />
+          <Input
+            className='input'
+            value={search}
+            onInput={(e) => setSearch(e.detail.value)}
+            onConfirm={() => void doSearch()}
+            placeholder='名称 / 款号 / 供应商'
+          />
         </View>
+        {hasManagerAccess(user) ? (
+          <View className='field'>
+            <Text className='field__label'>供应商</Text>
+            <Picker
+              mode='selector'
+              range={[{ name: '全部供应商' } as Supplier, ...suppliers]}
+              rangeKey='name'
+              onChange={(e) => {
+                const index = Number(e.detail.value);
+                const nextId = index === 0 ? null : (suppliers[index - 1]?.id ?? null);
+                setSupplierId(nextId);
+                void doSearch({ supplierId: nextId });
+              }}
+            >
+              <View className='picker'>{suppliers.find((item) => item.id === supplierId)?.name || '全部供应商'}</View>
+            </Picker>
+          </View>
+        ) : null}
         <View className='btn-row'>
-          <Button className='button button--primary button--tiny' onClick={() => void load()}>
+          <Button className='button button--primary button--tiny' onClick={() => void doSearch()}>
             查询
           </Button>
           <Button className='button button--ghost button--tiny' onClick={() => void handleScan()}>

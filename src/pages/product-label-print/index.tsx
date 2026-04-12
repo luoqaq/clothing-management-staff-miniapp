@@ -13,23 +13,24 @@ interface QRCodeState {
   matrix: QRCodeMatrix | null;
 }
 
-// 标签尺寸配置（高清绘制，避免锯齿）
-const LABEL_WIDTH = 720;  // 基础画布宽度（3倍）
-const LABEL_HEIGHT = 1080; // 基础画布高度（3倍）
-const CANVAS_SCALE = 2;   // 导出时再放大2倍，最终 1440x2160
+// 标签尺寸配置：40mm x 60mm 放大 2 倍导出
+// 打印 App 默认不读 PNG DPI，实测 472x709 偏小，改用 944x1417
+const LABEL_WIDTH = 944;
+const LABEL_HEIGHT = 1417;
+const CANVAS_SCALE = 1;
 
 // 品牌文案配置
 const BRAND_LINE1 = 'ChuChuNight';     // 品牌文案第一行
 const BRAND_LINE2 = '棉眠小铺 면면샵';   // 品牌文案第二行
-const BRAND_LINE1_FONT_SIZE = 64;       // 第一行字体大小
-const BRAND_LINE2_FONT_SIZE = 48;       // 第二行字体大小，与颜色尺寸字体大小保持一致
-const BRAND_LINE_HEIGHT = 78;           // 行高
-const PRODUCT_NAME_FONT_SIZE = 66;
-const PRODUCT_NAME_MIN_FONT_SIZE = 48;
-const PRODUCT_DETAIL_FONT_SIZE = 52;
-const PRODUCT_DETAIL_MIN_FONT_SIZE = 40;
-const PRICE_SYMBOL_FONT_SIZE = 48;
-const PRICE_VALUE_FONT_SIZE = 108;
+const BRAND_LINE1_FONT_SIZE = 84;       // 第一行字体大小
+const BRAND_LINE2_FONT_SIZE = 64;       // 第二行字体大小，与颜色尺寸字体大小保持一致
+const BRAND_LINE_HEIGHT = 102;          // 行高
+const PRODUCT_NAME_FONT_SIZE = 86;
+const PRODUCT_NAME_MIN_FONT_SIZE = 64;
+const PRODUCT_DETAIL_FONT_SIZE = 68;
+const PRODUCT_DETAIL_MIN_FONT_SIZE = 52;
+const PRICE_SYMBOL_FONT_SIZE = 62;
+const PRICE_VALUE_FONT_SIZE = 142;
 const FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 export default function ProductLabelPrintPage() {
@@ -140,45 +141,32 @@ export default function ProductLabelPrintPage() {
     const ctx = Taro.createCanvasContext('labelCanvas');
     const width = LABEL_WIDTH;
     const height = LABEL_HEIGHT;
-    const padding = 60;
-    const borderRadius = 48;
+    const padding = 80;
+    const borderRadius = 64;
 
     // 清空画布
     ctx.setFillStyle('#ffffff');
     ctx.fillRect(0, 0, width, height);
 
-    // 外边框
-    ctx.setStrokeStyle('#cccccc');
-    ctx.setLineWidth(1);
-    drawRoundRectPath(ctx, 0, 0, width, height, borderRadius);
-    ctx.stroke();
-
     // 品牌区域 - 使用两行文案
-    const brandY = 50;
+    const brandY = 66;
     ctx.setFillStyle('#000000');
     ctx.setTextAlign('center');
-    
+
     // 第一行 - 400字重，使用系统默认字体
     (ctx as any).font = `400 ${BRAND_LINE1_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.fillText(BRAND_LINE1, width / 2, brandY + BRAND_LINE1_FONT_SIZE);
-    
+
     // 第二行 - 400字重，使用系统默认字体
     (ctx as any).font = `400 ${BRAND_LINE2_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.fillText(BRAND_LINE2, width / 2, brandY + BRAND_LINE1_FONT_SIZE + BRAND_LINE_HEIGHT);
-    
-    // 品牌区域分隔线
-    ctx.setStrokeStyle('#cccccc');
-    ctx.setLineWidth(0.5);
-    ctx.beginPath();
-    const brandDividerY = brandY + BRAND_LINE1_FONT_SIZE + BRAND_LINE_HEIGHT + 30;
-    ctx.moveTo(padding, brandDividerY);
-    ctx.lineTo(width - padding, brandDividerY);
-    ctx.stroke();
+
+    const brandDividerY = brandY + BRAND_LINE1_FONT_SIZE + BRAND_LINE_HEIGHT + 40;
 
     // 商品信息
     ctx.setFillStyle('#000000');
     ctx.setTextAlign('center');
-    const infoY = brandDividerY + 82;
+    const infoY = brandDividerY + 108;
     drawCenteredFittedText(ctx, label.productName, width / 2, infoY, {
       fontSize: PRODUCT_NAME_FONT_SIZE,
       minFontSize: PRODUCT_NAME_MIN_FONT_SIZE,
@@ -186,7 +174,7 @@ export default function ProductLabelPrintPage() {
       fontWeight: 500,
     });
 
-    drawCenteredFittedText(ctx, `${label.color} | ${label.size}`, width / 2, infoY + 96, {
+    drawCenteredFittedText(ctx, `${label.color} | ${label.size}`, width / 2, infoY + 126, {
       fontSize: PRODUCT_DETAIL_FONT_SIZE,
       minFontSize: PRODUCT_DETAIL_MIN_FONT_SIZE,
       maxWidth: width - padding * 2,
@@ -194,10 +182,10 @@ export default function ProductLabelPrintPage() {
     });
 
     // 价格（居中）- ¥符号用小字号，与web端保持一致
-    const priceY = infoY + 240;
+    const priceY = infoY + 314;
     const priceText = label.salePrice.toFixed(2);
     const priceSymbol = '¥';
-    const priceSymbolMarginRight = 12;
+    const priceSymbolMarginRight = 16;
 
     // 估算文字宽度（¥符号按0.5倍字号，数字按0.6倍字号）
     const symbolWidth = PRICE_SYMBOL_FONT_SIZE * 0.5;
@@ -212,35 +200,20 @@ export default function ProductLabelPrintPage() {
     // 绘制 ¥ 符号（小字号，基线对齐）
     ctx.setTextAlign('center');
     (ctx as any).font = `400 ${PRICE_SYMBOL_FONT_SIZE}px ${FONT_FAMILY}`;
-    ctx.fillText(priceSymbol, symbolX, priceY - 12); // 稍微上移对齐数值的视觉中心
+    ctx.fillText(priceSymbol, symbolX, priceY - 16); // 稍微上移对齐数值的视觉中心
 
     // 绘制价格数值（大字号）
     (ctx as any).font = `400 ${PRICE_VALUE_FONT_SIZE}px ${FONT_FAMILY}`;
     ctx.fillText(priceText, valueX, priceY);
 
-    // 分隔线
-    const priceDividerY = priceY + 72;
-    ctx.beginPath();
-    ctx.moveTo(padding, priceDividerY);
-    ctx.lineTo(width - padding, priceDividerY);
-    ctx.stroke();
-
     // 二维码区域
-    const qrBoxSize = 300;
-    const qrPadding = 12;
+    const qrBoxSize = 394;
+    const qrPadding = 16;
     const qrBoxX = (width - qrBoxSize) / 2;
-    const qrBoxY = priceDividerY + 48;
+    const qrBoxY = priceY + 156;
     const qrImageSize = qrBoxSize - 2 * qrPadding;
     const qrImageX = qrBoxX + qrPadding;
     const qrImageY = qrBoxY + qrPadding;
-
-    // 二维码边框
-    ctx.setStrokeStyle('#cccccc');
-    ctx.setLineWidth(1);
-    drawRoundRectPath(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 10);
-    ctx.setFillStyle('#ffffff');
-    ctx.fill();
-    ctx.stroke();
 
     // 绘制二维码图片
     const qrState = qrCodeMap[label.barcode];
@@ -250,8 +223,8 @@ export default function ProductLabelPrintPage() {
       ctx.setFillStyle('#eeeeee');
       ctx.fillRect(qrImageX, qrImageY, qrImageSize, qrImageSize);
       ctx.setFillStyle('#999999');
-      (ctx as any).font = `36px ${FONT_FAMILY}`;
-      ctx.fillText('二维码', width / 2, qrBoxY + qrBoxSize / 2 + 12);
+      (ctx as any).font = `48px ${FONT_FAMILY}`;
+      ctx.fillText('二维码', width / 2, qrBoxY + qrBoxSize / 2 + 16);
     }
 
     // 执行绘制
