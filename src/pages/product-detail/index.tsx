@@ -60,7 +60,7 @@ export default function ProductDetailPage() {
       skuId: selectedSku.id,
       productName: product.name,
       skuCode: selectedSku.skuCode,
-      image: product.mainImages[0] || null,
+      image: selectedSku.image || product.mainImages[0] || null,
       price: selectedSku.salePrice,
       soldPrice: selectedSku.salePrice,
       color: selectedSku.color,
@@ -130,12 +130,7 @@ export default function ProductDetailPage() {
               <Image key={item} className='thumbnail' src={item} mode='aspectFill' />
             ))}
           </View>
-        ) : (
-          <View className='empty-state'>
-            <View className='empty-state__symbol'>图</View>
-            <Text>暂无主图</Text>
-          </View>
-        )}
+        ) : null}
         {hasManagerAccess(user) ? (
           <Button className='button button--ghost button--tiny section-gap' loading={uploading} onClick={() => void handleUpload('main')}>
             补传主图
@@ -166,25 +161,34 @@ export default function ProductDetailPage() {
               onClick={() => setSelectedSkuId(spec.id)}
             >
               <View className='row row--start'>
-                <Text>
-                  {spec.color} / {spec.size}
-                </Text>
-                <Text className={selectedSkuId === spec.id ? 'success' : 'muted'}>{formatCurrency(spec.salePrice)}</Text>
-              </View>
-              <View className='list-item__meta'>
-                <Text>可用库存 {spec.availableStock}</Text>
-                <Text>{spec.skuCode}</Text>
-                {hasManagerAccess(user) ? (
-                  <Text
-                    className='link'
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      Taro.navigateTo({ url: `/pages/product-label-print/index?id=${product.id}&skuId=${spec.id}` });
-                    }}
-                  >
-                    打印标签
-                  </Text>
-                ) : null}
+                {spec.image ? (
+                  <Image className='thumbnail thumbnail--tiny' src={spec.image} mode='aspectFill' />
+                ) : (
+                  <View className='thumbnail thumbnail--tiny thumbnail--placeholder' />
+                )}
+                <View style={{ flex: 1 }}>
+                  <View className='row row--start'>
+                    <Text>
+                      {spec.color} / {spec.size}
+                    </Text>
+                    <Text className={selectedSkuId === spec.id ? 'success' : 'muted'}>{formatCurrency(spec.salePrice)}</Text>
+                  </View>
+                  <View className='list-item__meta'>
+                    <Text>可用库存 {spec.availableStock}</Text>
+                    <Text>{spec.skuCode}</Text>
+                    {hasManagerAccess(user) ? (
+                      <Text
+                        className='link'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          Taro.navigateTo({ url: `/pages/product-label-print/index?id=${product.id}&skuId=${spec.id}` });
+                        }}
+                      >
+                        打印标签
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
               </View>
             </View>
           ))}

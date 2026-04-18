@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
-import { Button, Image, Input, Picker, Text, View } from '@tarojs/components';
+import { Button, Image, Input, Picker, ScrollView, Text, View } from '@tarojs/components';
 import { getProductByCode, getProductOptions, getProducts } from '../../services/products';
 import { getDashboardSummary } from '../../services/dashboard';
 import { DashboardSummary, Product, Supplier, User } from '../../types';
@@ -172,7 +172,18 @@ export default function ProductsPage() {
                 </View>
                 <Text className='list-item__price'>{formatCurrency(product.minPrice)} 起</Text>
               </View>
-              {product.mainImages[0] ? <Image className='thumbnail section-gap' src={product.mainImages[0]} mode='aspectFill' /> : null}
+              {(product.mainImages[0] || product.specifications.some((s) => s.image)) ? (
+                <ScrollView scrollX className='image-scroll section-gap'>
+                  {product.mainImages[0] ? (
+                    <Image className='thumbnail thumbnail--small' src={product.mainImages[0]} mode='aspectFill' />
+                  ) : null}
+                  {product.specifications
+                    .filter((s) => s.image)
+                    .map((spec) => (
+                      <Image key={spec.id} className='thumbnail thumbnail--small' src={spec.image!} mode='aspectFill' />
+                    ))}
+                </ScrollView>
+              ) : null}
               <View className='list-item__meta'>
                 <Text>库存 {product.availableStock}</Text>
                 <Text>{product.specCount} 个规格</Text>

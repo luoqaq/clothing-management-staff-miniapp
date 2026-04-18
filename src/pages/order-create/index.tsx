@@ -165,7 +165,7 @@ export default function OrderCreatePage() {
       productId: selectedProduct.id,
       productName: selectedProduct.name,
       skuCode: selectedSpec.skuCode,
-      image: selectedProduct.mainImages[0] || null,
+      image: selectedSpec.image || selectedProduct.mainImages[0] || null,
       price: selectedSpec.salePrice,
       soldPrice: selectedSpec.salePrice,
       color: selectedSpec.color,
@@ -727,14 +727,31 @@ export default function OrderCreatePage() {
                         onClick={() => setSelectedSpec(spec)}
                       >
                         <View className='row row--start'>
-                          <Text>{spec.color} / {spec.size}</Text>
-                          <Text className={selectedSpec?.id === spec.id ? 'success' : 'muted'}>
-                            {formatCurrency(spec.salePrice)}
-                          </Text>
-                        </View>
-                        <View className='list-item__meta'>
-                          <Text>可用库存 {spec.availableStock}</Text>
-                          <Text>{spec.skuCode}</Text>
+                          {spec.image ? (
+                            <Image
+                              className='thumbnail thumbnail--tiny'
+                              src={spec.image}
+                              mode='aspectFill'
+                              style={{ marginRight: '16rpx' }}
+                            />
+                          ) : (
+                            <View
+                              className='thumbnail thumbnail--tiny thumbnail--placeholder'
+                              style={{ marginRight: '16rpx' }}
+                            />
+                          )}
+                          <View style={{ flex: 1 }}>
+                            <View className='row row--start'>
+                              <Text>{spec.color} / {spec.size}</Text>
+                              <Text className={selectedSpec?.id === spec.id ? 'success' : 'muted'}>
+                                {formatCurrency(spec.salePrice)}
+                              </Text>
+                            </View>
+                            <View className='list-item__meta'>
+                              <Text>可用库存 {spec.availableStock}</Text>
+                              <Text>{spec.skuCode}</Text>
+                            </View>
+                          </View>
                         </View>
                       </View>
                     ))}

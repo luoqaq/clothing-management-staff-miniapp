@@ -117,7 +117,7 @@ export default function ProductLabelPrintPage() {
         color: spec.color,
         size: spec.size,
         salePrice: spec.salePrice,
-        image: result.mainImages[0] || null,
+        image: spec.image || result.mainImages[0] || null,
       }));
       setLabels(labelItems);
       if (preselectedSkuId && labelItems.some((l) => l.skuId === preselectedSkuId)) {

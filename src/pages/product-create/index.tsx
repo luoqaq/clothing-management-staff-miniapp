@@ -352,12 +352,6 @@ export default function ProductCreatePage() {
           </View>
         )}
 
-        {(!form.mainImages?.length && !form.detailImages?.length) && (
-          <View className='summary-strip'>
-            <View className='summary-chip'>主图 0 张</View>
-            <View className='summary-chip'>详情图 0 张</View>
-          </View>
-        )}
       </View>
 
       <View className='panel'>

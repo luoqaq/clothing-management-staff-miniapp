@@ -782,8 +782,24 @@ button::after {
   flex-shrink: 0;
 }
 
+.thumbnail--tiny {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  border-radius: 14px;
+}
+
 .thumbnail--placeholder {
   background: linear-gradient(135deg, rgba(183, 138, 92, 0.15), rgba(107, 94, 83, 0.08));
+}
+
+.image-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: 4px;
 }
 
 .quantity-control {

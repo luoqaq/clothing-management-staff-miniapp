@@ -68,6 +68,7 @@ export interface ProductSpecification {
   stock: number;
   reservedStock: number;
   availableStock: number;
+  image?: string | null;
   status: ProductSpecificationStatus;
   createdAt: string;
   updatedAt: string;
