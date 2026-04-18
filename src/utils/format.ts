@@ -14,12 +14,12 @@ export function formatProductStatus(status: ProductStatus) {
 
 export function formatOrderStatus(status: OrderStatus) {
   return {
-    pending: '待确认',
+    pending: '已确认',
     confirmed: '已确认',
-    shipped: '已发货',
-    delivered: '已完成',
+    shipped: '已确认',
+    delivered: '已确认',
     cancelled: '已取消',
-    refunded: '已退款',
+    refunded: '已取消',
   }[status];
 }
 

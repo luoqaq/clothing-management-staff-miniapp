@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Taro, { useDidShow, useLoad } from '@tarojs/taro';
-import { Button, Image, Input, Text, Textarea, View } from '@tarojs/components';
-import { cancelOrder, getOrder, updateOrderStatus } from '../../services/orders';
+import { Button, Image, Text, Textarea, View } from '@tarojs/components';
+import { cancelOrder, getOrder } from '../../services/orders';
 import { Order } from '../../types';
 import { requireAuth } from '../../utils/auth';
 import { formatCurrency, formatOrderStatus } from '../../utils/format';
@@ -112,18 +112,10 @@ export default function OrderDetailPage() {
         <View className='card__header'>
           <View>
             <View className='card__title'>订单操作</View>
-            <View className='section-desc'>按当前状态推进确认、发货、完成或取消。</View>
+            <View className='section-desc'>门店订单只保留已确认和已取消。</View>
           </View>
         </View>
-        <View className='btn-row'>
-          {order.status === 'confirmed' ? (
-            <Button className='button button--primary button--tiny' onClick={() => void act(() => updateOrderStatus(order.id, 'delivered'))}>
-              标记完成
-            </Button>
-          ) : null}
-        </View>
-
-        {['confirmed', 'pending'].includes(order.status) ? (
+        {order.status !== 'cancelled' && order.status !== 'refunded' ? (
           <View className='section-gap order-actions'>
             <Textarea className='textarea' value={cancelReason} onInput={(e) => setCancelReason(e.detail.value)} placeholder='取消原因' />
             <Button className='button button--danger button--block' onClick={() => void act(() => cancelOrder(order.id, cancelReason || '门店取消'))}>

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Image, Input, Picker, Text, Textarea, View } from '@tarojs/components';
-import { createProduct, getProductOptions } from '../../services/products';
+import { checkProductCode, createProduct, getProductOptions } from '../../services/products';
 import { CreateProductPayload, ProductOptions, ProductSpecificationPayload } from '../../types';
 import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
 import { selectAndUploadImages } from '../../utils/upload';
@@ -15,6 +15,8 @@ const defaultSpecification = (): ProductSpecificationPayload => ({
   status: 'active',
 });
 
+type ProductCodeCheckStatus = 'idle' | 'checking' | 'available' | 'duplicate';
+
 export default function ProductCreatePage() {
   const [options, setOptions] = useState<ProductOptions>({
     categories: [],
@@ -24,6 +26,9 @@ export default function ProductCreatePage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [productCodeCheckStatus, setProductCodeCheckStatus] = useState<ProductCodeCheckStatus>('idle');
+  const [productCodeCheckMessage, setProductCodeCheckMessage] = useState('');
+  const lastCheckedProductCodeRef = useRef('');
   const [form, setForm] = useState<CreateProductPayload>({
     productCode: '',
     name: '',
@@ -75,6 +80,67 @@ export default function ProductCreatePage() {
     }));
   };
 
+  const handleProductCodeInput = (value: string) => {
+    setForm((prev) => ({ ...prev, productCode: value }));
+    setProductCodeCheckStatus('idle');
+    setProductCodeCheckMessage('');
+    lastCheckedProductCodeRef.current = '';
+  };
+
+  const validateProductCode = async (rawValue?: string) => {
+    const normalizedProductCode = String(rawValue ?? form.productCode ?? '').trim();
+
+    if (!normalizedProductCode) {
+      setProductCodeCheckStatus('idle');
+      setProductCodeCheckMessage('');
+      lastCheckedProductCodeRef.current = '';
+      return false;
+    }
+
+    if (lastCheckedProductCodeRef.current === normalizedProductCode && productCodeCheckStatus !== 'idle') {
+      return productCodeCheckStatus === 'duplicate';
+    }
+
+    try {
+      setProductCodeCheckStatus('checking');
+      setProductCodeCheckMessage('正在校验款号...');
+      const result = await checkProductCode(normalizedProductCode);
+      lastCheckedProductCodeRef.current = normalizedProductCode;
+
+      if (result.exists) {
+        setProductCodeCheckStatus('duplicate');
+        setProductCodeCheckMessage(`款号 ${normalizedProductCode} 已存在`);
+        return true;
+      }
+
+      setProductCodeCheckStatus('available');
+      setProductCodeCheckMessage('款号可用');
+      return false;
+    } catch (error: any) {
+      setProductCodeCheckStatus('idle');
+      setProductCodeCheckMessage('');
+      throw error;
+    }
+  };
+
+  const handleProductCodeBlur = async (value?: string) => {
+    const normalizedProductCode = String(value ?? '').trim();
+    if (!normalizedProductCode) {
+      setProductCodeCheckStatus('idle');
+      setProductCodeCheckMessage('');
+      return;
+    }
+
+    try {
+      const isDuplicate = await validateProductCode(normalizedProductCode);
+      if (isDuplicate) {
+        Taro.showToast({ title: `款号 ${normalizedProductCode} 已存在`, icon: 'none' });
+      }
+    } catch (error: any) {
+      Taro.showToast({ title: error.message || '款号校验失败', icon: 'none' });
+    }
+  };
+
   const uploadImages = async (scene: 'main' | 'detail') => {
     try {
       setUploading(true);
@@ -99,10 +165,23 @@ export default function ProductCreatePage() {
       return;
     }
 
+    const normalizedProductCode = String(form.productCode ?? '').trim();
+    if (!normalizedProductCode) {
+      Taro.showToast({ title: '请输入款号', icon: 'none' });
+      return;
+    }
+
     try {
       setSubmitting(true);
+      const isDuplicate = await validateProductCode(normalizedProductCode);
+      if (isDuplicate) {
+        Taro.showToast({ title: `款号 ${normalizedProductCode} 已存在`, icon: 'none' });
+        return;
+      }
+
       const payload = {
         ...form,
+        productCode: normalizedProductCode,
         tags: form.tags || [],
         specifications: form.specifications.map((item) => ({
           ...item,
@@ -137,7 +216,17 @@ export default function ProductCreatePage() {
         </View>
         <View className='field'>
           <Text className='field__label'>款号</Text>
-          <Input className='input' value={form.productCode} onInput={(e) => setForm({ ...form, productCode: e.detail.value })} />
+          <Input
+            className='input'
+            value={form.productCode}
+            onInput={(e) => handleProductCodeInput(e.detail.value)}
+            onBlur={(e) => void handleProductCodeBlur(e.detail.value)}
+          />
+          {productCodeCheckMessage ? (
+            <View className={`field__feedback ${productCodeCheckStatus === 'duplicate' ? 'field__feedback--error' : productCodeCheckStatus === 'available' ? 'field__feedback--success' : ''}`}>
+              {productCodeCheckMessage}
+            </View>
+          ) : null}
         </View>
         <View className='field'>
           <Text className='field__label'>商品名称</Text>

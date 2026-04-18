@@ -212,7 +212,7 @@ export default function OrdersPage() {
       <View className='page__header'>
         <View className='page__eyebrow'>Order Flow</View>
         <View className='page__title'>门店订单</View>
-        <View className='page__subtitle'>聚焦状态流转与金额，优先处理待确认和待发货订单。</View>
+        <View className='page__subtitle'>聚焦已确认与已取消订单，按成交金额快速回看门店流水。</View>
       </View>
 
       <View className='time-tabs' style={{ paddingBottom: '12px' }}>
@@ -249,31 +249,6 @@ export default function OrdersPage() {
             : '订单数据已隐藏，点击展开'}
         </Text>
       </View>
-
-      {summary.pendingOrderCount > 0 && (
-        <View style={{ padding: '0 22px 16px' }}>
-          <View
-            style={{
-              backgroundColor: 'rgba(255, 247, 230, 0.9)',
-              borderRadius: '12px',
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              border: '1px solid rgba(212, 107, 8, 0.15)',
-            }}
-            onClick={() => {
-              setStatus('pending');
-              reload('pending', timeTab);
-            }}
-          >
-            <Text style={{ fontSize: '26px', color: '#d46b08', fontWeight: 500 }}>
-              ⚠️ 有 {summary.pendingOrderCount} 单待确认
-            </Text>
-            <Text style={{ fontSize: '24px', color: '#d46b08' }}>去处理 ›</Text>
-          </View>
-        </View>
-      )}
 
       <View className='toolbar'>
         <Picker

@@ -318,6 +318,20 @@ button::after {
   margin-bottom: 20px;
 }
 
+.field__feedback {
+  margin-top: 8px;
+  font-size: 22px;
+  color: var(--text-secondary);
+}
+
+.field__feedback--error {
+  color: #b42318;
+}
+
+.field__feedback--success {
+  color: #027a48;
+}
+
 .field:last-child {
   margin-bottom: 0;
 }

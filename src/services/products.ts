@@ -28,6 +28,17 @@ export function getProduct(id: number) {
   });
 }
 
+export function checkProductCode(code: string, excludeId?: number) {
+  const query = new URLSearchParams({
+    code,
+    ...(excludeId ? { excludeId: String(excludeId) } : {}),
+  });
+
+  return request<{ exists: boolean }>({
+    url: `/products/check-code?${query.toString()}`,
+  });
+}
+
 export function getProductByCode(code: string) {
   return request<ScannedSkuProduct>({
     url: `/products/by-code?code=${encodeURIComponent(code)}`,
