@@ -142,6 +142,7 @@ export default function DashboardPage() {
   };
 
   const currentLabel = tabLabelMap[activeTab];
+  const canViewProfit = hasManagerAccess(user);
 
   function getDaysMultiplier(tab: TimeTab): number {
     const now = new Date();
@@ -209,7 +210,7 @@ export default function DashboardPage() {
           {showStats && summary.salesAmount > 0 && (
             <View className='summary-card__stars'>{getSalesStars(summary.salesAmount, activeTab)}</View>
           )}
-          {showStats && (
+          {showStats && canViewProfit && (
             <View className='summary-card__subnote'>毛利 {formatCurrency(summary.grossProfit || 0)}</View>
           )}
           {!showStats && (

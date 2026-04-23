@@ -17,6 +17,8 @@ interface QRCodeState {
 // 打印 App 默认不读 PNG DPI，实测 472x709 偏小，改用 944x1417
 const LABEL_WIDTH = 944;
 const LABEL_HEIGHT = 1417;
+const SMALL_LABEL_WIDTH = 1181;
+const SMALL_LABEL_HEIGHT = 709;
 const CANVAS_SCALE = 1;
 
 // 品牌文案配置
@@ -29,6 +31,13 @@ const PRODUCT_NAME_FONT_SIZE = 86;
 const PRODUCT_NAME_MIN_FONT_SIZE = 64;
 const PRODUCT_DETAIL_FONT_SIZE = 68;
 const PRODUCT_DETAIL_MIN_FONT_SIZE = 52;
+const SMALL_PRODUCT_CODE_FONT_SIZE = 112;
+const SMALL_PRODUCT_NAME_FONT_SIZE = 74;
+const SMALL_PRODUCT_NAME_MIN_FONT_SIZE = 54;
+const SMALL_PRODUCT_DETAIL_FONT_SIZE = 74;
+const SMALL_PRODUCT_DETAIL_MIN_FONT_SIZE = 54;
+const SMALL_LABEL_QR_SIZE = 432;
+const SMALL_LABEL_QR_INNER_SIZE = 396;
 const PRICE_SYMBOL_FONT_SIZE = 62;
 const PRICE_VALUE_FONT_SIZE = 142;
 const FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -142,7 +151,6 @@ export default function ProductLabelPrintPage() {
     const width = LABEL_WIDTH;
     const height = LABEL_HEIGHT;
     const padding = 80;
-    const borderRadius = 64;
 
     // 清空画布
     ctx.setFillStyle('#ffffff');
@@ -166,15 +174,22 @@ export default function ProductLabelPrintPage() {
     // 商品信息
     ctx.setFillStyle('#000000');
     ctx.setTextAlign('center');
-    const infoY = brandDividerY + 108;
-    drawCenteredFittedText(ctx, label.productName, width / 2, infoY, {
+    const infoY = brandDividerY + 90;
+    drawCenteredFittedText(ctx, label.productCode, width / 2, infoY - 8, {
+      fontSize: PRODUCT_DETAIL_FONT_SIZE,
+      minFontSize: PRODUCT_DETAIL_MIN_FONT_SIZE,
+      maxWidth: width - padding * 2,
+      fontWeight: 400,
+    });
+
+    drawCenteredFittedText(ctx, label.productName, width / 2, infoY + 102, {
       fontSize: PRODUCT_NAME_FONT_SIZE,
       minFontSize: PRODUCT_NAME_MIN_FONT_SIZE,
       maxWidth: width - padding * 2,
       fontWeight: 500,
     });
 
-    drawCenteredFittedText(ctx, `${label.color} | ${label.size}`, width / 2, infoY + 126, {
+    drawCenteredFittedText(ctx, `${label.color} | ${label.size}`, width / 2, infoY + 228, {
       fontSize: PRODUCT_DETAIL_FONT_SIZE,
       minFontSize: PRODUCT_DETAIL_MIN_FONT_SIZE,
       maxWidth: width - padding * 2,
@@ -182,7 +197,7 @@ export default function ProductLabelPrintPage() {
     });
 
     // 价格（居中）- ¥符号用小字号，与web端保持一致
-    const priceY = infoY + 314;
+    const priceY = infoY + 408;
     const priceText = label.salePrice.toFixed(2);
     const priceSymbol = '¥';
     const priceSymbolMarginRight = 16;
@@ -252,8 +267,85 @@ export default function ProductLabelPrintPage() {
     });
   };
 
+  const generateSmallLabelImage = async (label: ProductLabelItem): Promise<string> => {
+    const ctx = Taro.createCanvasContext('smallLabelCanvas');
+    const width = SMALL_LABEL_WIDTH;
+    const height = SMALL_LABEL_HEIGHT;
+    const paddingX = 64;
+    const textQrGap = 44;
+    const qrBoxX = width - paddingX - SMALL_LABEL_QR_SIZE;
+    const qrBoxY = (height - SMALL_LABEL_QR_SIZE) / 2;
+    const qrImageX = qrBoxX + (SMALL_LABEL_QR_SIZE - SMALL_LABEL_QR_INNER_SIZE) / 2;
+    const qrImageY = qrBoxY + (SMALL_LABEL_QR_SIZE - SMALL_LABEL_QR_INNER_SIZE) / 2;
+    const textX = paddingX;
+    const textWidth = qrBoxX - textX - textQrGap;
+
+    ctx.setFillStyle('#ffffff');
+    ctx.fillRect(0, 0, width, height);
+    ctx.setFillStyle('#000000');
+    ctx.setTextAlign('left');
+
+    drawFittedText(ctx, label.productCode, textX, 160, {
+      fontSize: SMALL_PRODUCT_CODE_FONT_SIZE,
+      minFontSize: SMALL_PRODUCT_DETAIL_MIN_FONT_SIZE,
+      maxWidth: textWidth,
+      fontWeight: 500,
+      textAlign: 'left',
+    });
+
+    drawFittedText(ctx, label.productName, textX, 308, {
+      fontSize: SMALL_PRODUCT_NAME_FONT_SIZE,
+      minFontSize: SMALL_PRODUCT_NAME_MIN_FONT_SIZE,
+      maxWidth: textWidth,
+      fontWeight: 500,
+      textAlign: 'left',
+    });
+
+    drawFittedText(ctx, `${label.color} | ${label.size}`, textX, 478, {
+      fontSize: SMALL_PRODUCT_DETAIL_FONT_SIZE,
+      minFontSize: SMALL_PRODUCT_DETAIL_MIN_FONT_SIZE,
+      maxWidth: textWidth,
+      fontWeight: 500,
+      textAlign: 'left',
+    });
+
+    const qrState = qrCodeMap[label.barcode];
+    if (qrState?.status === 'success' && qrState.matrix) {
+      drawQRCodeMatrix(ctx, qrState.matrix, qrImageX, qrImageY, SMALL_LABEL_QR_INNER_SIZE);
+    } else {
+      ctx.setFillStyle('#eeeeee');
+      ctx.fillRect(qrImageX, qrImageY, SMALL_LABEL_QR_INNER_SIZE, SMALL_LABEL_QR_INNER_SIZE);
+      ctx.setFillStyle('#999999');
+      ctx.setTextAlign('center');
+      (ctx as any).font = `48px ${FONT_FAMILY}`;
+      ctx.fillText('二维码', qrBoxX + SMALL_LABEL_QR_SIZE / 2, qrBoxY + SMALL_LABEL_QR_SIZE / 2 + 16);
+    }
+
+    await new Promise<void>((resolve) => {
+      ctx.draw(false, () => {
+        setTimeout(resolve, 100);
+      });
+    });
+
+    return new Promise((resolve, reject) => {
+      Taro.canvasToTempFilePath({
+        canvasId: 'smallLabelCanvas',
+        x: 0,
+        y: 0,
+        width,
+        height,
+        destWidth: width * CANVAS_SCALE,
+        destHeight: height * CANVAS_SCALE,
+        fileType: 'png',
+        quality: 1,
+        success: (res) => resolve(res.tempFilePath),
+        fail: reject,
+      });
+    });
+  };
+
   // 绘制圆角矩形路径
-  const drawCenteredFittedText = (
+  const drawFittedText = (
     ctx: Taro.CanvasContext,
     text: string,
     x: number,
@@ -263,9 +355,10 @@ export default function ProductLabelPrintPage() {
       minFontSize: number;
       maxWidth: number;
       fontWeight?: number;
+      textAlign?: 'left' | 'center';
     }
   ) => {
-    const { fontSize, minFontSize, maxWidth, fontWeight = 400 } = options;
+    const { fontSize, minFontSize, maxWidth, fontWeight = 400, textAlign = 'center' } = options;
     let finalFontSize = fontSize;
     const measureText = (value: string, size: number) => {
       (ctx as any).font = `${fontWeight} ${size}px ${FONT_FAMILY}`;
@@ -280,7 +373,23 @@ export default function ProductLabelPrintPage() {
     }
 
     (ctx as any).font = `${fontWeight} ${finalFontSize}px ${FONT_FAMILY}`;
+    ctx.setTextAlign(textAlign);
     ctx.fillText(text, x, y);
+  };
+
+  const drawCenteredFittedText = (
+    ctx: Taro.CanvasContext,
+    text: string,
+    x: number,
+    y: number,
+    options: {
+      fontSize: number;
+      minFontSize: number;
+      maxWidth: number;
+      fontWeight?: number;
+    }
+  ) => {
+    drawFittedText(ctx, text, x, y, { ...options, textAlign: 'center' });
   };
 
   const drawRoundRectPath = (
@@ -330,8 +439,55 @@ export default function ProductLabelPrintPage() {
     }
   };
 
+  const handlePreviewSmall = async (label: ProductLabelItem) => {
+    const qrState = qrCodeMap[label.barcode];
+    if (!qrState || qrState.status !== 'success') {
+      Taro.showToast({ title: '二维码加载中，请稍候', icon: 'none' });
+      return;
+    }
+
+    setGenerating(true);
+    Taro.showLoading({ title: '生成中...' });
+
+    try {
+      const imagePath = await generateSmallLabelImage(label);
+      Taro.previewImage({
+        urls: [imagePath],
+        current: imagePath,
+      });
+    } catch (error: any) {
+      Taro.showToast({ title: error.message || '生成失败', icon: 'none' });
+    } finally {
+      setGenerating(false);
+      Taro.hideLoading();
+    }
+  };
+
   // 批量生成并保存标签图片
-  const handleGenerate = async () => {
+  const saveImageToAlbum = async (imagePath: string) => {
+    await new Promise<void>((resolve, reject) => {
+      Taro.saveImageToPhotosAlbum({
+        filePath: imagePath,
+        success: resolve,
+        fail: (err) => {
+          if (err.errMsg?.includes('auth deny')) {
+            Taro.showModal({
+              title: '需要授权',
+              content: '请允许保存图片到相册',
+              success: (modalRes) => {
+                if (modalRes.confirm) {
+                  Taro.openSetting();
+                }
+              },
+            });
+          }
+          reject(err);
+        },
+      });
+    });
+  };
+
+  const handleGenerate = async (labelType: 'large' | 'small') => {
     const selectedLabels = labels.filter((l) => selectedSkuIds.includes(l.skuId));
     if (selectedLabels.length === 0) {
       Taro.showToast({ title: '请至少选择一个规格', icon: 'none' });
@@ -351,31 +507,14 @@ export default function ProductLabelPrintPage() {
         const label = selectedLabels[i];
         Taro.showLoading({ title: `正在生成 ${i + 1}/${selectedLabels.length}...` });
 
-        const imagePath = await generateLabelImage(label);
+        const imagePath = labelType === 'large'
+          ? await generateLabelImage(label)
+          : await generateSmallLabelImage(label);
 
-        await new Promise<void>((resolve, reject) => {
-          Taro.saveImageToPhotosAlbum({
-            filePath: imagePath,
-            success: resolve,
-            fail: (err) => {
-              if (err.errMsg?.includes('auth deny')) {
-                Taro.showModal({
-                  title: '需要授权',
-                  content: '请允许保存图片到相册',
-                  success: (modalRes) => {
-                    if (modalRes.confirm) {
-                      Taro.openSetting();
-                    }
-                  },
-                });
-              }
-              reject(err);
-            },
-          });
-        });
+        await saveImageToAlbum(imagePath);
       }
 
-      Taro.showToast({ title: `已保存 ${selectedLabels.length} 张标签`, icon: 'success' });
+      Taro.showToast({ title: `已保存 ${selectedLabels.length} 张${labelType === 'large' ? '标签' : '小标签'}`, icon: 'success' });
     } catch (error: any) {
       Taro.showToast({ title: error.message || '保存失败', icon: 'none' });
     } finally {
@@ -456,7 +595,18 @@ export default function ProductLabelPrintPage() {
                           void handlePreview(label);
                         }}
                       >
-                        预览
+                        预览标签
+                      </Text>
+                    )}
+                    {isReady && (
+                      <Text
+                        className='link qr-status-tag qr-status-tag--ready'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handlePreviewSmall(label);
+                        }}
+                      >
+                        小标签
                       </Text>
                     )}
                   </View>
@@ -494,14 +644,24 @@ export default function ProductLabelPrintPage() {
             }
 
             return (
-              <Button
-                className='button button--primary'
-                loading={generating}
-                disabled={btnDisabled}
-                onClick={() => void handleGenerate()}
-              >
-                {btnText}
-              </Button>
+              <>
+                <Button
+                  className='button button--primary'
+                  loading={generating}
+                  disabled={btnDisabled}
+                  onClick={() => void handleGenerate('large')}
+                >
+                  {btnText}
+                </Button>
+                <Button
+                  className='button'
+                  loading={generating}
+                  disabled={btnDisabled}
+                  onClick={() => void handleGenerate('small')}
+                >
+                  {selectedCount === 0 ? '请选择规格' : `生成并保存小标签 (${selectedReady}张)`}
+                </Button>
+              </>
             );
           })()}
         </View>
@@ -517,6 +677,16 @@ export default function ProductLabelPrintPage() {
           top: 0,
           width: LABEL_WIDTH,
           height: LABEL_HEIGHT,
+        }}
+      />
+      <Canvas
+        canvasId='smallLabelCanvas'
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          width: SMALL_LABEL_WIDTH,
+          height: SMALL_LABEL_HEIGHT,
         }}
       />
     </View>

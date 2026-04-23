@@ -484,7 +484,7 @@ export default function OrderCreatePage() {
                         {item.color} / {item.size}
                       </View>
                       <View className='list-item__subtitle' style={{ marginTop: '4rpx' }}>
-                        <Text style={{ color: '#999' }}>原价 ¥{item.price}</Text>
+                        <Text style={{ color: '#999' }}>原价 {formatCurrency(item.price)}</Text>
                       </View>
                     </View>
                   </View>
@@ -744,7 +744,7 @@ export default function OrderCreatePage() {
                             <View className='row row--start'>
                               <Text>{spec.color} / {spec.size}</Text>
                               <Text className={selectedSpec?.id === spec.id ? 'success' : 'muted'}>
-                                {formatCurrency(spec.salePrice)}
+                                原价 {formatCurrency(spec.salePrice)}
                               </Text>
                             </View>
                             <View className='list-item__meta'>

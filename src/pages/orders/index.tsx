@@ -3,8 +3,8 @@ import Taro, { useDidShow } from '@tarojs/taro';
 import { Button, Image, Picker, Text, View } from '@tarojs/components';
 import { getOrders } from '../../services/orders';
 import { getDashboardSummary } from '../../services/dashboard';
-import { DashboardSummary, Order, OrderStatus } from '../../types';
-import { requireAuth } from '../../utils/auth';
+import { DashboardSummary, Order, OrderStatus, User } from '../../types';
+import { getCurrentUser, hasManagerAccess, requireAuth } from '../../utils/auth';
 import { formatCurrency, formatDateTime, formatOrderStatus } from '../../utils/format';
 
 const orderStatuses: Array<{ label: string; value: '' | OrderStatus }> = [
@@ -104,6 +104,7 @@ export default function OrdersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [user, setUser] = useState<User | undefined>(getCurrentUser() || undefined);
   const [summary, setSummary] = useState<DashboardSummary>({
     orderCount: 0,
     salesAmount: 0,
@@ -162,6 +163,7 @@ export default function OrdersPage() {
       setTotal(orderResult.total);
       setPage(nextPage);
       setSummary(summaryResult);
+      setUser(getCurrentUser() || undefined);
     } catch (error: any) {
       Taro.showToast({ title: error.message || '加载订单失败', icon: 'none' });
     } finally {
@@ -245,7 +247,7 @@ export default function OrdersPage() {
       >
         <Text style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
           {showStats
-            ? `共 ${summary.orderCount} 单，销售额 ${formatCurrency(summary.salesAmount)}，毛利 ${formatCurrency(summary.grossProfit || 0)}`
+            ? `共 ${summary.orderCount} 单，销售额 ${formatCurrency(summary.salesAmount)}${hasManagerAccess(user) ? `，毛利 ${formatCurrency(summary.grossProfit || 0)}` : ''}`
             : '订单数据已隐藏，点击展开'}
         </Text>
       </View>
