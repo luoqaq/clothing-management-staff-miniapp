@@ -17,7 +17,9 @@ type OrderMode = 'direct' | 'scan' | 'manual';
 interface OrderItem {
   skuId: number;
   productId: number;
+  productCode?: string;
   productName: string;
+  barcode?: string;
   skuCode: string;
   image?: string | null;
   price: number;
@@ -54,8 +56,37 @@ export default function OrderCreatePage() {
   const [scanning, setScanning] = useState(false);
 
   const syncItemsToSource = (nextItems: OrderItem[]) => {
+    const scannedItems = nextItems.map((item) => {
+      const { quantityDraft: _, ...rest } = item;
+      return {
+        skuId: rest.skuId,
+        productId: rest.productId,
+        productName: rest.productName,
+        skuCode: rest.skuCode,
+        image: rest.image ?? null,
+        salePrice: rest.price,
+        color: rest.color ?? null,
+        size: rest.size ?? null,
+        quantity: rest.quantity,
+        barcode: rest.barcode ?? '',
+        productCode: rest.productCode ?? '',
+        stock: rest.stock ?? rest.quantity,
+        reservedStock: 0,
+        availableStock: rest.stock ?? rest.quantity,
+        status: 'active',
+        productStatus: 'active',
+      };
+    });
+
     switch (modeRef.current) {
       case 'direct':
+        if (nextItems.length > 1) {
+          clearDirectOrderItem();
+          setScannedItems(scannedItems);
+          modeRef.current = 'scan';
+          setMode('scan');
+          return;
+        }
         if (nextItems[0]) {
           setDirectOrderItem({
             skuId: nextItems[0].skuId,
@@ -73,27 +104,7 @@ export default function OrderCreatePage() {
         }
         break;
       case 'scan':
-        setScannedItems(nextItems.map((item) => {
-          const { quantityDraft: _, ...rest } = item;
-          return {
-            skuId: rest.skuId,
-            productId: rest.productId,
-            productName: rest.productName,
-            skuCode: rest.skuCode,
-            image: rest.image ?? null,
-            salePrice: rest.price,
-            color: rest.color ?? null,
-            size: rest.size ?? null,
-            quantity: rest.quantity,
-            barcode: '',
-            productCode: '',
-            stock: rest.stock ?? rest.quantity,
-            reservedStock: 0,
-            availableStock: rest.stock ?? rest.quantity,
-            status: 'active',
-            productStatus: 'active',
-          };
-        }));
+        setScannedItems(scannedItems);
         break;
       default:
         break;
@@ -198,7 +209,9 @@ export default function OrderCreatePage() {
     return sourceItems.map((item) => ({
       skuId: item.skuId,
       productId: item.productId,
+      productCode: item.productCode,
       productName: item.productName,
+      barcode: item.barcode,
       skuCode: item.skuCode,
       image: item.image ?? null,
       price: item.price ?? item.salePrice ?? 0,
@@ -269,7 +282,9 @@ export default function OrderCreatePage() {
       upsertOrderItem({
         skuId: scannedProduct.skuId,
         productId: scannedProduct.productId,
+        productCode: scannedProduct.productCode,
         productName: scannedProduct.productName,
+        barcode: scannedProduct.barcode,
         skuCode: scannedProduct.skuCode,
         image: scannedProduct.image ?? null,
         price: scannedProduct.salePrice,
@@ -350,7 +365,9 @@ export default function OrderCreatePage() {
     if (!requireAuth()) {
       return;
     }
-    loadItems(modeRef.current);
+    if (modeRef.current !== 'manual') {
+      loadItems(modeRef.current);
+    }
     void (async () => {
       try {
         const result = await getAgeBuckets();
